@@ -1,0 +1,49 @@
+# Ignore Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore virtual environment
+venv/
+env/
+ENV/
+.venv/
+.Python
+
+# Ignore Django static and media files (if generated locally)
+staticfiles/
+media/
+
+# Ignore SQLite database (if used for development)
+db.sqlite3
+
+# Ignore environment variable files
+.env
+*.env
+
+# Ignore VSCode and IDE configs
+.vscode/
+.idea/
+
+# Ignore logs
+*.log
+
+# Ignore translation build artifacts
+locale/*/LC_MESSAGES/*.mo
+
+# Ignore coverage reports
+htmlcov/
+.coverage
+.tox/
+.nox/
+
+# Ignore migrations if you don't want to track them (optional)
+# ** Uncomment if desired **
+# */migrations/
+
+# Ignore pip tools
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Ignore Docker-related files (optional)
+*.pid
