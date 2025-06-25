@@ -2,22 +2,29 @@ from rest_framework import serializers
 from .models import *
 
 class RFQItemSerializer(serializers.ModelSerializer):
+    serial_number = serializers.SerializerMethodField()
+
     class Meta:
         model = RFQItem
         fields = ['serial_number', 'item_description', 'quantity', 'unit', 'rfq_channel']
 
+    def get_serial_number(self, obj):
+        # Serial number is generated based on the order of items
+        items = obj.rfq.items.all().order_by('id')
+        return list(items).index(obj) + 1
+
 class RFQSerializer(serializers.ModelSerializer):
-    items = RFQItemSerializer(many=True)  # Remove read_only=True to allow writing
+    items = RFQItemSerializer(many=True)
 
     class Meta:
         model = RFQ
         fields = [
-            'id', 'quote_no', 'date', 'company_name', 'reference', 'address', 'telephone',
-            'attention', 'email_id', 'account_name', 'account_number', 'IBAN',
-            'bank_address', 'company_address', 'po_number', 'vat_no', 'make',
-            'model', 'unit_price', 'total_price', 'subtotal', 'vat_percentage',
-            'shipping', 'other', 'total_inr', 'comments', 'issue_date', 'rev_no',
-            'website', 'items'
+            'id', 'quote_no', 'date', 'due_date', 'assign_to', 'status', 'created_at',
+            'company_name', 'reference', 'address', 'telephone', 'attention', 'email_id',
+            'account_name', 'account_number', 'IBAN', 'bank_address', 'company_address',
+            'po_number', 'vat_no', 'make', 'model', 'unit_price', 'total_price', 'subtotal',
+            'vat_percentage', 'shipping', 'other', 'total_inr', 'comments', 'issue_date',
+            'rev_no', 'website', 'items'
         ]
 
     def create(self, validated_data):
@@ -31,6 +38,9 @@ class RFQSerializer(serializers.ModelSerializer):
         items_data = validated_data.pop('items', [])
         instance.quote_no = validated_data.get('quote_no', instance.quote_no)
         instance.date = validated_data.get('date', instance.date)
+        instance.due_date = validated_data.get('due_date', instance.due_date)
+        instance.assign_to = validated_data.get('assign_to', instance.assign_to)
+        instance.status = validated_data.get('status', instance.status)
         instance.company_name = validated_data.get('company_name', instance.company_name)
         instance.reference = validated_data.get('reference', instance.reference)
         instance.address = validated_data.get('address', instance.address)
@@ -65,7 +75,6 @@ class RFQSerializer(serializers.ModelSerializer):
         return instance
 
     def to_representation(self, instance):
-        # Ensure items are included in all responses
         response = super().to_representation(instance)
         response['items'] = RFQItemSerializer(instance.items.all(), many=True).data
         return response

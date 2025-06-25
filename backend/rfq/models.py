@@ -3,6 +3,18 @@ from django.db import models
 class RFQ(models.Model):
     quote_no = models.CharField(max_length=100)
     date = models.DateField()
+    due_date = models.DateField()
+    assign_to = models.CharField(max_length=50, choices=[
+    ('Admin', 'Admin'),
+    ('SuperAdmin', 'SuperAdmin'),
+    ('User', 'User')
+], default='User')
+
+
+    status = models.CharField(max_length=50, choices=[
+        ('Processing', 'Processing'),
+        ('Completed', 'Completed')
+    ], default='Processing')
     company_name = models.CharField(max_length=255)
     reference = models.CharField(max_length=255, blank=True, null=True)
     address = models.TextField()
@@ -11,10 +23,10 @@ class RFQ(models.Model):
     email_id = models.EmailField()
     account_name = models.CharField(max_length=255, blank=True, null=True)
     account_number = models.CharField(max_length=50)
-    IBAN = models.CharField(max_length=34, blank=True, null=True) 
+    IBAN = models.CharField(max_length=34, blank=True, null=True)
     bank_address = models.TextField()
     company_address = models.TextField()
-    po_number = models.CharField(max_length=100) 
+    po_number = models.CharField(max_length=100)
     vat_no = models.CharField(max_length=50)
     make = models.CharField(max_length=255)
     model = models.CharField(max_length=255)
@@ -32,15 +44,14 @@ class RFQ(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"rfq {self.quote_no} - {self.company_name}"
+        return f"RFQ {self.quote_no} - {self.company_name}"
 
 class RFQItem(models.Model):
     rfq = models.ForeignKey(RFQ, related_name='items', on_delete=models.CASCADE)
-    serial_number = models.IntegerField(blank=True, null=True) 
     item_description = models.CharField(max_length=255)
     quantity = models.PositiveIntegerField()
-    unit = models.CharField(max_length=50) 
+    unit = models.CharField(max_length=50)
     rfq_channel = models.CharField(max_length=50, choices=[(ch, ch) for ch in ["WhatsApp", "Email", "Number", "LinkedIn"]])
 
     def __str__(self):
-        return f"Item {self.serial_number} - {self.item_description}"
+        return f"Item - {self.item_description}"

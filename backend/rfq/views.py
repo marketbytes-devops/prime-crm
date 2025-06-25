@@ -25,5 +25,4 @@ class RFQViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
-        data = [self.get_serializer(instance).data for instance in queryset]
-        return Response(data)
+        return Response(serializer.data)
