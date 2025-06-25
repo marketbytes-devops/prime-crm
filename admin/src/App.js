@@ -11,6 +11,8 @@ import Login from "./pages/Auth/Login";
 import ResetPassword from "./pages/Auth/ResetPassword";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import AddRFQ from "./pages/Execution/RFQ/AddRFQ";
+import ViewRFQ from "./pages/Execution/RFQ/ViewRFQ";
 
 const ProtectedRoute = ({ children, isAuthenticated }) => {
   return isAuthenticated ? children : <Navigate to="/login" />;
@@ -48,6 +50,14 @@ function App() {
         {
           path: "/profile",
           element: <Profile />,
+        },
+        {
+          path: "/pre-job/add-rfq",
+          element: <AddRFQ />,
+        },
+        {
+          path: '/pre-job/view-rfq',
+          element: <ViewRFQ />,
         },
         {
           path: "/settings",
