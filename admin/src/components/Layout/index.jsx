@@ -14,7 +14,7 @@ const Layout = ({ isAuthenticated, setIsAuthenticated }) => {
   useEffect(() => {
     const mediaQuery = window.matchMedia('(min-width: 768px)');
     const handleResize = () => {
-      setIsSidebarOpen(mediaQuery.matches);
+      setIsSidebarOpen(mediaQuery.matches); 
     };
 
     handleResize();
@@ -29,7 +29,7 @@ const Layout = ({ isAuthenticated, setIsAuthenticated }) => {
         .then((response) => {
           setUser({
             username: response.data.username,
-            image: response.data.image, 
+            image: response.data.image,
           });
         })
         .catch((error) => {
@@ -78,7 +78,9 @@ const Layout = ({ isAuthenticated, setIsAuthenticated }) => {
           />
         </div>
         <main
-          className={`bg-gradient-to-b from-blue-50 via-indigo-50 to-gray-200 flex-1 pt-20 p-6 ${isSidebarOpen ? 'md:ml-72' : 'ml-0'}`}
+          className={`bg-gradient-to-b from-blue-50 via-indigo-50 to-gray-200 flex-1 pt-20 p-6 ${
+            isSidebarOpen ? 'md:ml-72' : 'ml-0'
+          }`}
         >
           <Outlet />
         </main>

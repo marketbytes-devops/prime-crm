@@ -11,6 +11,8 @@ const Sidebar = ({ toggleSidebar }) => {
     setIsPreJobOpen(!isPreJobOpen);
   };
 
+  const isMobile = () => window.matchMedia('(max-width: 767px)').matches;
+
   const menuItems = [
     { to: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4 inline-block mr-2" /> },
     {
@@ -73,12 +75,13 @@ const Sidebar = ({ toggleSidebar }) => {
                             <NavLink
                               to={subItem.to}
                               className={({ isActive }) =>
-                                `block p-2 rounded transition-colors duration-300 group ${isActive
-                                  ? 'bg-indigo-500 text-gray-100'
-                                  : 'text-gray-800 hover:bg-indigo-500 hover:text-gray-100'
+                                `block p-2 rounded transition-colors duration-300 group ${
+                                  isActive
+                                    ? 'bg-indigo-500 text-gray-100'
+                                    : 'text-gray-800 hover:bg-indigo-500 hover:text-gray-100'
                                 }`
                               }
-                              onClick={toggleSidebar}
+                              onClick={() => isMobile() && toggleSidebar()} 
                             >
                               <span className="flex items-center">
                                 {subItem.icon}
@@ -95,10 +98,11 @@ const Sidebar = ({ toggleSidebar }) => {
                 <NavLink
                   to={item.to}
                   className={({ isActive }) =>
-                    `block p-2 rounded transition-colors duration-300 group ${isActive ? 'bg-indigo-500 text-gray-100' : 'text-gray-800 hover:bg-indigo-500 hover:text-gray-100'
+                    `block p-2 rounded transition-colors duration-300 group ${
+                      isActive ? 'bg-indigo-500 text-gray-100' : 'text-gray-800 hover:bg-indigo-500 hover:text-gray-100'
                     }`
                   }
-                  onClick={toggleSidebar}
+                  onClick={() => isMobile() && toggleSidebar()} 
                 >
                   <span className="flex items-center">
                     {item.icon}
