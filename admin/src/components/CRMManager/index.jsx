@@ -12,6 +12,7 @@ const CRMManager = ({
   singleFields = [],
   initialData = null,
   isEditing = false,
+  showRepeatableFields = true, 
 }) => {
   const navigate = useNavigate();
   const [formEntries, setFormEntries] = useState([{ id: Date.now(), data: {} }]);
@@ -106,20 +107,24 @@ const CRMManager = ({
       return;
     }
 
-    for (const entry of formEntries) {
-      const validationError = validateEntry(entry);
-      if (validationError) {
-        toast.error(validationError);
-        setIsSubmitting(false);
-        return;
+    if (showRepeatableFields) {
+      for (const entry of formEntries) {
+        const validationError = validateEntry(entry);
+        if (validationError) {
+          toast.error(validationError);
+          setIsSubmitting(false);
+          return;
+        }
       }
     }
 
-    const itemsData = formEntries.map((entry) => entry.data).filter((data) => 
-      Object.keys(data).length > 0
-    );
+    const itemsData = showRepeatableFields
+      ? formEntries.map((entry) => entry.data).filter((data) => 
+          Object.keys(data).length > 0
+        )
+      : [];
 
-    if (itemsData.length === 0) {
+    if (showRepeatableFields && itemsData.length === 0) {
       toast.error("Please add at least one item.");
       setIsSubmitting(false);
       return;
@@ -230,6 +235,35 @@ const CRMManager = ({
 
   const renderSingleField = (field) => {
     const value = singleFormData[field.name] || "";
+    if (field.type === "select") {
+      return (
+        <div key={field.name} className="mb-4">
+          <label
+            htmlFor={field.name}
+            className="block text-xs font-medium text-gray-800 mb-1"
+          >
+            {field.label} {field.required && <span className="text-red-500">*</span>}
+          </label>
+          <select
+            id={field.name}
+            name={field.name}
+            value={value}
+            onChange={handleSingleInputChange}
+            className="w-full text-sm p-2 border border-gray-800 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500 opacity-80"
+            aria-required={field.required}
+          >
+            <option value="" disabled>
+              {field.placeholder}
+            </option>
+            {field.options.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
     if (field.type === "textarea") {
       return (
         <div key={field.name} className="mb-4">
@@ -279,29 +313,33 @@ const CRMManager = ({
       <h2 className="text-lg font-medium mb-6 text-gray-800">{title}</h2>
       <form onSubmit={handleSubmit} className="mb-6">
         {singleFields.map((field) => renderSingleField(field))}
-        {formEntries.map((entry) => (
-          <div key={entry.id} className="mb-4 p-4 bg-gray-100 shadow rounded">
-            {formEntries.length > 1 && (
-              <div className="flex items-center justify-end mb-4">
-                <button
-                  type="button"
-                  onClick={() => removeFormBlock(entry.id)}
-                  className="bg-red-400 text-white px-4 py-2 text-sm rounded hover:bg-red-500 transition-colors duration-200 flex items-center"
-                >
-                  <Trash size={18} className="mr-2" /> Remove
-                </button>
+        {showRepeatableFields && (
+          <>
+            {formEntries.map((entry) => (
+              <div key={entry.id} className="mb-4 p-4 bg-gray-100 shadow rounded">
+                {formEntries.length > 1 && (
+                  <div className="flex items-center justify-end mb-4">
+                    <button
+                      type="button"
+                      onClick={() => removeFormBlock(entry.id)}
+                      className="bg-red-400 text-white px-4 py-2 text-sm rounded hover:bg-red-500 transition-colors duration-200 flex items-center"
+                    >
+                      <Trash size={18} className="mr-2" /> Remove
+                    </button>
+                  </div>
+                )}
+                {fields.map((field) => renderField(field, entry.id))}
               </div>
-            )}
-            {fields.map((field) => renderField(field, entry.id))}
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={addFormBlock}
-          className="bg-green-500 text-white px-4 py-2 text-sm rounded hover:bg-green-600 transition-colors duration-200 flex items-center mb-4"
-        >
-          <Plus size={18} className="mr-2" /> Add Item
-        </button>
+            ))}
+            <button
+              type="button"
+              onClick={addFormBlock}
+              className="bg-green-500 text-white px-4 py-2 text-sm rounded hover:bg-green-600 transition-colors duration-200 flex items-center mb-4"
+            >
+              <Plus size={18} className="mr-2" /> Add Item
+            </button>
+          </>
+        )}
         <button
           type="submit"
           disabled={isSubmitting}
@@ -336,10 +374,12 @@ CRMManager.propTypes = {
       required: PropTypes.bool,
       placeholder: PropTypes.string,
       min: PropTypes.number,
+      options: PropTypes.arrayOf(PropTypes.string),
     })
   ),
   initialData: PropTypes.object,
   isEditing: PropTypes.bool,
+  showRepeatableFields: PropTypes.bool, 
 };
 
 export default CRMManager;

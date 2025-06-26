@@ -5,7 +5,7 @@ import apiClient from "../../helpers/apiClient";
 import { FilePenLine, Trash } from "lucide-react";
 import { toast } from "react-toastify";
 
-const ViewCard = ({ apiBaseUrl, singleFields, repeatableFields, title, editPath }) => {
+const ViewCard = ({ apiBaseUrl, singleFields, repeatableFields, title, editPath, showRepeatableFields = true }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [rfqs, setRfqs] = useState([]);
@@ -80,7 +80,7 @@ const ViewCard = ({ apiBaseUrl, singleFields, repeatableFields, title, editPath 
             >
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-md font-semibold text-gray-800">
-                  RFQ #{rfq.quote_no || "N/A"}
+                  RFQ #{rfq.quote_no || rfq.id || "N/A"}
                 </h3>
                 <div className="flex space-x-2">
                   <button
@@ -109,7 +109,7 @@ const ViewCard = ({ apiBaseUrl, singleFields, repeatableFields, title, editPath 
                   </div>
                 ))}
               </div>
-              {rfq.items && rfq.items.length > 0 ? (
+              {showRepeatableFields && rfq.items && rfq.items.length > 0 ? (
                 <div>
                   <h4 className="text-sm font-medium text-gray-800 mb-2">Items</h4>
                   <div className="overflow-x-auto">
@@ -143,9 +143,9 @@ const ViewCard = ({ apiBaseUrl, singleFields, repeatableFields, title, editPath 
                     </table>
                   </div>
                 </div>
-              ) : (
+              ) : showRepeatableFields ? (
                 <p className="text-sm text-gray-600">No items found for this RFQ.</p>
-              )}
+              ) : null}
             </div>
           ))}
         </div>
@@ -161,6 +161,9 @@ ViewCard.propTypes = {
       name: PropTypes.string.isRequired,
       label: PropTypes.string.isRequired,
       type: PropTypes.string.isRequired,
+      required: PropTypes.bool,
+      placeholder: PropTypes.string,
+      options: PropTypes.arrayOf(PropTypes.string),
     })
   ).isRequired,
   repeatableFields: PropTypes.arrayOf(
@@ -168,10 +171,14 @@ ViewCard.propTypes = {
       name: PropTypes.string.isRequired,
       label: PropTypes.string.isRequired,
       type: PropTypes.string.isRequired,
+      required: PropTypes.bool,
+      placeholder: PropTypes.string,
+      options: PropTypes.arrayOf(PropTypes.string),
     })
   ).isRequired,
   title: PropTypes.string.isRequired,
   editPath: PropTypes.string.isRequired,
+  showRepeatableFields: PropTypes.bool,
 };
 
 export default ViewCard;

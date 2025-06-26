@@ -8,6 +8,8 @@ venv/
 env/
 ENV/
 .venv/
+.env/
+.env
 .Python
 
 # Ignore Django static and media files (if generated locally)
