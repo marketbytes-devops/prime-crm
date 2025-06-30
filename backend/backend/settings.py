@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'documentation',
     'authapp',
     'rfq',
+    'rfqchannels',
 ]
 
 MIDDLEWARE = [
