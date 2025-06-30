@@ -12,10 +12,10 @@ import ResetPassword from "./pages/Auth/ResetPassword";
 import Profile from "./pages/Profile";
 import AddRFQ from "./pages/Execution/RFQ/AddRFQ";
 import ViewRFQ from "./pages/Execution/RFQ/ViewRFQ";
-import RFQChannel from "./pages/Settings/RFQChannel"; // Corrected import
+import RFQChannels from "./pages/Settings/RFQChannels";
 
 const ProtectedRoute = ({ children, isAuthenticated }) => {
-  console.log("ProtectedRoute - isAuthenticated:", isAuthenticated); // Debug log
+  console.log("ProtectedRoute - isAuthenticated:", isAuthenticated);
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
@@ -63,11 +63,10 @@ function App() {
         },
         {
           path: "/settings",
-          element: <div></div>, 
           children: [
             {
               path: "rfq-channel",
-              element: <RFQChannel />,
+              element: <RFQChannels />,
             },
           ],
         },

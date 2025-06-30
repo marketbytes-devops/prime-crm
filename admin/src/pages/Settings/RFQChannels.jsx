@@ -1,8 +1,7 @@
-// src/pages/Settings/RFQChannel.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import apiClient from '../../helpers/apiClient';
 
-const RFQChannel = () => {
+const RFQChannels = () => {
   const [channelName, setChannelName] = useState('');
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -125,4 +124,4 @@ const RFQChannel = () => {
   );
 };
 
-export default RFQChannel;
+export default RFQChannels;
