@@ -10,11 +10,12 @@ import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Auth/Login";
 import ResetPassword from "./pages/Auth/ResetPassword";
 import Profile from "./pages/Profile";
-import Settings from "./pages/Settings";
 import AddRFQ from "./pages/Execution/RFQ/AddRFQ";
 import ViewRFQ from "./pages/Execution/RFQ/ViewRFQ";
+import RFQChannel from "./pages/Settings/RFQChannel"; // Corrected import
 
 const ProtectedRoute = ({ children, isAuthenticated }) => {
+  console.log("ProtectedRoute - isAuthenticated:", isAuthenticated); // Debug log
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
@@ -42,6 +43,7 @@ function App() {
           />
         </ProtectedRoute>
       ),
+      errorElement: <div>Something went wrong. Please try again or contact support.</div>,
       children: [
         {
           path: "/",
@@ -56,12 +58,18 @@ function App() {
           element: <AddRFQ />,
         },
         {
-          path: '/pre-job/view-rfq',
+          path: "/pre-job/view-rfq",
           element: <ViewRFQ />,
         },
         {
           path: "/settings",
-          element: <Settings />,
+          element: <div></div>, 
+          children: [
+            {
+              path: "rfq-channel",
+              element: <RFQChannel />,
+            },
+          ],
         },
       ],
     },
