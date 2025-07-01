@@ -4,7 +4,7 @@ from .views import  ItemViewSet, UnitViewSet
 
 router = DefaultRouter()
 router.register(r'items', ItemViewSet, basename='item')
-router.register(r'units', UnitViewSet, basename='unit')  # Unique basename for Unit
+router.register(r'units', UnitViewSet, basename='unit') 
 
 urlpatterns = [
     path('', include(router.urls)),
