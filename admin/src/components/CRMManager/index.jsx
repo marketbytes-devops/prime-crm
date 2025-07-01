@@ -1,8 +1,8 @@
+// src/components/CRMManager.jsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
-import apiClient from "../../helpers/apiClient";
-import { Plus, Trash } from "lucide-react";
+import { Plus, Trash, ArrowRight } from "lucide-react";
 import { toast } from "react-toastify";
 
 const CRMManager = ({
@@ -12,15 +12,19 @@ const CRMManager = ({
   singleFields = [],
   initialData = null,
   isEditing = false,
-  showRepeatableFields = true, 
+  showRepeatableFields = true,
+  currentStep,
+  onNext,
+  totalSteps,
+  children,
 }) => {
   const navigate = useNavigate();
   const [formEntries, setFormEntries] = useState([{ id: Date.now(), data: {} }]);
   const [singleFormData, setSingleFormData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dropdownOptions, setDropdownOptions] = useState({});
 
   useEffect(() => {
-    console.log("Initial Data in CRMManager:", initialData);
     if (initialData) {
       const initialSingleData = {};
       singleFields.forEach((field) => {
@@ -36,7 +40,30 @@ const CRMManager = ({
         : [{ id: Date.now(), data: {} }];
       setFormEntries(entries);
     }
-  }, [initialData, singleFields]);
+
+    // Fetch dropdown options for fields with searchEndpoint
+    const fetchDropdownOptions = async () => {
+      const options = {};
+      for (const field of fields) {
+        if (field.searchEndpoint) {
+          try {
+            console.log(`Fetching options for ${field.name} from ${field.searchEndpoint}`);
+            const response = await apiClient.get(field.searchEndpoint);
+            console.log(`Response for ${field.name}:`, response.data);
+            options[field.name] = response.data.map(item => ({
+              label: item[field.optionLabel] || item.name, // Fallback to 'name' if optionLabel fails
+              value: item[field.optionValue] || item.name, // Fallback to 'name' if optionValue fails
+            })).sort((a, b) => a.label.localeCompare(b.label));
+            console.log(`Processed options for ${field.name}:`, options[field.name]);
+          } catch (err) {
+            console.error(`Failed to fetch options for ${field.name}:`, err);
+          }
+        }
+      }
+      setDropdownOptions(options);
+    };
+    if (currentStep === 2 && fields.length > 0) fetchDropdownOptions();
+  }, [initialData, singleFields, fields, currentStep]);
 
   const validateEntry = (entry) => {
     for (const field of fields) {
@@ -119,9 +146,7 @@ const CRMManager = ({
     }
 
     const itemsData = showRepeatableFields
-      ? formEntries.map((entry) => entry.data).filter((data) => 
-          Object.keys(data).length > 0
-        )
+      ? formEntries.map((entry) => entry.data).filter((data) => Object.keys(data).length > 0)
       : [];
 
     if (showRepeatableFields && itemsData.length === 0) {
@@ -134,10 +159,9 @@ const CRMManager = ({
       ...singleFormData,
       items: itemsData,
     };
-    console.log("Sending to backend (Full Data):", combinedData);
-    console.log("Items Array:", itemsData);
 
     try {
+      console.log("Submitting data to /add-rfqs/:", combinedData);
       if (isEditing && initialData?.id) {
         await apiClient.put(`${apiBaseUrl}${initialData.id}/`, combinedData);
         toast.success("RFQ updated!");
@@ -149,7 +173,7 @@ const CRMManager = ({
       setFormEntries([{ id: Date.now(), data: {} }]);
       navigate("/pre-job/view-rfq");
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error submitting to /add-rfqs/:", error);
       toast.error("Failed to save RFQ.");
     } finally {
       setIsSubmitting(false);
@@ -159,14 +183,48 @@ const CRMManager = ({
   const renderField = (field, entryId) => {
     const entry = formEntries.find((e) => e.id === entryId);
     const value = entry?.data[field.name] || "";
+    const options = dropdownOptions[field.name] || [];
 
-    if (field.type === "select") {
+    if (field.type === "select" && field.searchEndpoint) {
+      const filteredOptions = options.filter(option =>
+        option.label.toLowerCase().includes(value.toLowerCase())
+      ).sort((a, b) => a.label.localeCompare(b.label));
+
+      return (
+        <div key={field.name} className="mb-4 relative">
+          <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-gray-800 mb-1">
+            {field.label} {field.required && <span className="text-red-500">*</span>}
+          </label>
+          <input
+            type="text"
+            id={`${field.name}-${entryId}`}
+            name={field.name}
+            value={value}
+            onChange={(e) => handleInputChange(e, entryId)}
+            placeholder={field.placeholder}
+            className="w-full text-sm p-2 border border-gray-800 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500 opacity-80"
+            aria-required={field.required}
+          />
+          {value && filteredOptions.length > 0 && (
+            <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
+              {filteredOptions.map((option) => (
+                <li
+                  key={option.value}
+                  className="p-2 hover:bg-gray-100 cursor-pointer"
+                  onClick={() => handleInputChange({ target: { name: field.name, value: option.value } }, entryId)}
+                >
+                  {option.label}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    }
+    if (field.type === "select" && !field.searchEndpoint) {
       return (
         <div key={field.name} className="mb-4">
-          <label
-            htmlFor={`${field.name}-${entryId}`}
-            className="block text-xs font-medium text-gray-800 mb-1"
-          >
+          <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-gray-800 mb-1">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <select
@@ -177,13 +235,9 @@ const CRMManager = ({
             className="w-full text-sm p-2 border border-gray-800 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500 opacity-80"
             aria-required={field.required}
           >
-            <option value="" disabled>
-              {field.placeholder}
-            </option>
+            <option value="" disabled>{field.placeholder}</option>
             {field.options.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
+              <option key={option} value={option}>{option}</option>
             ))}
           </select>
         </div>
@@ -192,10 +246,7 @@ const CRMManager = ({
     if (field.type === "textarea") {
       return (
         <div key={field.name} className="mb-4">
-          <label
-            htmlFor={`${field.name}-${entryId}`}
-            className="block text-xs font-medium text-gray-800 mb-1"
-          >
+          <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-gray-800 mb-1">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <textarea
@@ -212,10 +263,7 @@ const CRMManager = ({
     }
     return (
       <div key={field.name} className="mb-4">
-        <label
-          htmlFor={`${field.name}-${entryId}`}
-          className="block text-xs font-medium text-gray-800 mb-1"
-        >
+        <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-gray-800 mb-1">
           {field.label} {field.required && <span className="text-red-500">*</span>}
         </label>
         <input
@@ -238,10 +286,7 @@ const CRMManager = ({
     if (field.type === "select") {
       return (
         <div key={field.name} className="mb-4">
-          <label
-            htmlFor={field.name}
-            className="block text-xs font-medium text-gray-800 mb-1"
-          >
+          <label htmlFor={field.name} className="block text-xs font-medium text-gray-800 mb-1">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <select
@@ -252,13 +297,9 @@ const CRMManager = ({
             className="w-full text-sm p-2 border border-gray-800 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500 opacity-80"
             aria-required={field.required}
           >
-            <option value="" disabled>
-              {field.placeholder}
-            </option>
+            <option value="" disabled>{field.placeholder}</option>
             {field.options.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
+              <option key={option} value={option}>{option}</option>
             ))}
           </select>
         </div>
@@ -267,10 +308,7 @@ const CRMManager = ({
     if (field.type === "textarea") {
       return (
         <div key={field.name} className="mb-4">
-          <label
-            htmlFor={field.name}
-            className="block text-xs font-medium text-gray-800 mb-1"
-          >
+          <label htmlFor={field.name} className="block text-xs font-medium text-gray-800 mb-1">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <textarea
@@ -287,10 +325,7 @@ const CRMManager = ({
     }
     return (
       <div key={field.name} className="mb-4">
-        <label
-          htmlFor={field.name}
-          className="block text-xs font-medium text-gray-800 mb-1"
-        >
+        <label htmlFor={field.name} className="block text-xs font-medium text-gray-800 mb-1">
           {field.label} {field.required && <span className="text-red-500">*</span>}
         </label>
         <input
@@ -311,24 +346,25 @@ const CRMManager = ({
   return (
     <div className="mx-auto p-4">
       <h2 className="text-lg font-medium mb-6 text-gray-800">{title}</h2>
-      <form onSubmit={handleSubmit} className="mb-6">
-        {singleFields.map((field) => renderSingleField(field))}
-        {showRepeatableFields && (
+      <form className="mb-6">
+        {currentStep === 1 &&
+          singleFields.map((field) => renderSingleField(field))}
+        {currentStep === 2 && showRepeatableFields && (
           <>
             {formEntries.map((entry) => (
-              <div key={entry.id} className="mb-4 p-4 bg-gray-100 shadow rounded">
+              <div key={entry.id} className="mb-4 p-4 bg-gray-100 shadow rounded grid grid-cols-3 gap-4">
+                {fields.map((field) => renderField(field, entry.id))}
                 {formEntries.length > 1 && (
-                  <div className="flex items-center justify-end mb-4">
+                  <div className="flex items-center justify-end col-span-3">
                     <button
                       type="button"
                       onClick={() => removeFormBlock(entry.id)}
-                      className="bg-red-400 text-white px-4 py-2 text-sm rounded hover:bg-red-500 transition-colors duration-200 flex items-center"
+                      className="bg-red-400 text-white px-2 py-1 text-sm rounded hover:bg-red-500 transition-colors duration-200 flex items-center"
                     >
-                      <Trash size={18} className="mr-2" /> Remove
+                      <Trash size={16} className="mr-1" /> Remove
                     </button>
                   </div>
                 )}
-                {fields.map((field) => renderField(field, entry.id))}
               </div>
             ))}
             <button
@@ -340,13 +376,31 @@ const CRMManager = ({
             </button>
           </>
         )}
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="bg-indigo-500 text-white px-4 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
-        >
-          {isEditing ? "Update" : "Save"}
-        </button>
+        {children}
+        <div className="flex justify-end mt-4">
+          {currentStep === 1 ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                onNext(e);
+              }}
+              disabled={isSubmitting}
+              className="bg-indigo-500 text-white px-4 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200 flex items-center"
+            >
+              Next <ArrowRight size={18} className="ml-2" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="bg-indigo-500 text-white px-4 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
+            >
+              {isSubmitting ? "Saving..." : "Save"}
+            </button>
+          )}
+        </div>
       </form>
     </div>
   );
@@ -363,6 +417,9 @@ CRMManager.propTypes = {
       placeholder: PropTypes.string,
       min: PropTypes.number,
       options: PropTypes.arrayOf(PropTypes.string),
+      searchEndpoint: PropTypes.string,
+      optionLabel: PropTypes.string,
+      optionValue: PropTypes.string,
     })
   ).isRequired,
   title: PropTypes.string.isRequired,
@@ -379,7 +436,11 @@ CRMManager.propTypes = {
   ),
   initialData: PropTypes.object,
   isEditing: PropTypes.bool,
-  showRepeatableFields: PropTypes.bool, 
+  showRepeatableFields: PropTypes.bool,
+  currentStep: PropTypes.number,
+  onNext: PropTypes.func,
+  totalSteps: PropTypes.number,
+  children: PropTypes.node,
 };
 
 export default CRMManager;
