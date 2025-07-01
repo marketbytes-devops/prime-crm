@@ -25,7 +25,11 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include([
         path("", include("authapp.urls")),
-        path("", include("rfq.urls")), 
+        path("", include("rfq.urls")),
+        path("", include("rfqchannels.urls")),
+        path("", include("product.urls")),
+        path("", include("Item.urls")),
+        path("", include("Team.urls")),   
     ])),
     path("documentation/", include("documentation.urls")),
 ]

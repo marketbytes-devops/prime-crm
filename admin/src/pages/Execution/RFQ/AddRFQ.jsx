@@ -1,13 +1,98 @@
-import { useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import apiClient from "../../../helpers/apiClient";
 import CRMManager from "../../../components/CRMManager";
+import ClientSelectionModal from "../../../components/ClientSelectionModal.jsx";
+import ExistingClientModal from "../../../components/ExistingClientModal";
+import ExistingClient from "../../../components/ExistingClient/ExistingClient.jsx";
 
 const AddRFQ = () => {
   const location = useLocation();
-  const { rfqData, isEditing } = location.state || {};
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const { rfqData = {}, isEditing = false } = location.state || {};
+  const [showClientModal, setShowClientModal] = useState(!rfqData.company_name && !isEditing && !id);
+  const [showExistingClientModal, setShowExistingClientModal] = useState(false);
+  const [rfqChannels, setRfqChannels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [itemsLoading, setItemsLoading] = useState(false);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [initialRfqData, setInitialRfqData] = useState(rfqData);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [includeItems, setIncludeItems] = useState(false);
+  const [includeProducts, setIncludeProducts] = useState(false);
 
-  console.log("RFQ Data in AddRFQ:", rfqData);
+  useEffect(() => {
+    const fetchRfqChannels = async () => {
+      try {
+        setLoading(true);
+        const response = await apiClient.get("/rfq-channels/");
+        console.log("RFQ Channels Response:", response.data);
+        setRfqChannels(response.data.map((channel) => channel.channel_name));
+      } catch (err) {
+        console.error("Failed to fetch RFQ channels:", err.response || err.message);
+        setError("Failed to load RFQ channels.");
+        setRfqChannels([]);
+      }
+    };
 
-  const singleFields = [
+    const fetchItems = async () => {
+      try {
+        setItemsLoading(true);
+        const response = await apiClient.get("/items/");
+        console.log("Items Response:", response.data);
+      } catch (err) {
+        console.error("Failed to fetch items:", err.response || err.message);
+        setError("Failed to load items.");
+      } finally {
+        setItemsLoading(false);
+      }
+    };
+
+    const fetchProducts = async () => {
+      try {
+        setProductsLoading(true);
+        const response = await apiClient.get("/products/");
+        console.log("Products Response:", response.data);
+      } catch (err) {
+        console.error("Failed to fetch products:", err.response || err.message);
+        setError("Failed to load products.");
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    const fetchRfqData = async () => {
+      if (id) {
+        try {
+          const response = await apiClient.get(`/add-rfqs/${id}/`);
+          console.log("RFQ Data Response:", response.data);
+          setInitialRfqData(response.data);
+          if (response.data.items) {
+            setIncludeItems(response.data.items.some(item => item.item_name));
+            setIncludeProducts(response.data.items.some(item => item.product_name));
+          }
+        } catch (err) {
+          console.error("Failed to fetch RFQ data:", err.response || err.message);
+          setError("Failed to load RFQ data.");
+        }
+      }
+    };
+
+    Promise.all([fetchRfqChannels(), fetchItems(), fetchProducts(), fetchRfqData()]).finally(() => {
+      setLoading(false);
+    });
+  }, [id]);
+
+  const handleClientSelect = (type) => {
+    setShowClientModal(false);
+    if (type === "existing") {
+      setShowExistingClientModal(true);
+    }
+  };
+
+  const companyAttentionFields = [
     {
       name: "company_name",
       label: "Company Name",
@@ -48,7 +133,7 @@ const AddRFQ = () => {
       label: "RFQ Channel",
       type: "select",
       required: false,
-      options: ["WhatsApp", "Email", "Number", "LinkedIn"],
+      options: loading ? [] : rfqChannels,
       placeholder: "Select RFQ Channel",
     },
     {
@@ -69,22 +154,128 @@ const AddRFQ = () => {
       name: "attention_email",
       label: "Attention Email",
       type: "email",
-      required: true,
+      required: false,
       placeholder: "Enter Attention Email",
     },
   ];
 
+  const baseFields = [
+    {
+      name: "quantity",
+      label: "Quantity",
+      type: "number",
+      required: true,
+      placeholder: "Enter Quantity",
+      min: 1,
+    },
+    {
+      name: "unit",
+      label: "Unit",
+      type: "select",
+      required: true,
+      placeholder: "Select Unit",
+      searchEndpoint: "/units/",
+      optionLabel: "name",
+      optionValue: "name",
+    },
+  ];
+
+  const itemFields = includeItems
+    ? [
+        {
+          name: "item_name",
+          label: "Item",
+          type: "select",
+          required: true,
+          placeholder: "Select Item",
+          searchEndpoint: "/items/",
+          optionLabel: "name",
+          optionValue: "name",
+        },
+        ...baseFields,
+      ]
+    : [];
+
+  const productFields = includeProducts
+    ? [
+        {
+          name: "product_name",
+          label: "Product",
+          type: "select",
+          required: true,
+          placeholder: "Select Product",
+          searchEndpoint: "/products/",
+          optionLabel: "name",
+          optionValue: "name",
+        },
+        ...baseFields,
+      ]
+    : [];
+
+  const currentFields = [...itemFields, ...productFields];
+
+  if (location.pathname === "/pre-job/existing-client") {
+    return <ExistingClient />;
+  }
+
+  if (loading || itemsLoading || productsLoading) return <p>Loading data...</p>;
+  if (error) return <p className="text-red-600">{error}</p>;
+
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 relative">
+      {showClientModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <ClientSelectionModal
+            onClose={() => setShowClientModal(false)}
+            onSelect={handleClientSelect}
+          />
+        </div>
+      )}
+      {showExistingClientModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <ExistingClientModal
+            onClose={() => setShowExistingClientModal(false)}
+          />
+        </div>
+      )}
       <CRMManager
         apiBaseUrl="/add-rfqs/"
-        fields={[]}
-        title={isEditing ? "Edit Company Details" : "Add Company Details"}
-        singleFields={singleFields}
-        initialData={rfqData}
-        isEditing={isEditing || false}
-        showRepeatableFields={false} 
-      />
+        fields={currentFields}
+        title={isEditing || id ? "Edit Company Details" : "Add Company Details"}
+        singleFields={currentStep === 1 ? companyAttentionFields : []}
+        initialData={initialRfqData}
+        isEditing={isEditing || !!id}
+        showRepeatableFields={currentStep === 2}
+        currentStep={currentStep}
+        onNext={(e) => {
+          e.preventDefault();
+          setCurrentStep(2);
+        }}
+        totalSteps={2}
+      >
+        {currentStep === 2 && (
+          <div className="mb-4">
+            <label className="mr-4">
+              <input
+                type="checkbox"
+                checked={includeItems}
+                onChange={(e) => setIncludeItems(e.target.checked)}
+                className="mr-2"
+              />
+              Include Items
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={includeProducts}
+                onChange={(e) => setIncludeProducts(e.target.checked)}
+                className="mr-2"
+              />
+              Include Products
+            </label>
+          </div>
+        )}
+      </CRMManager>
     </div>
   );
 };

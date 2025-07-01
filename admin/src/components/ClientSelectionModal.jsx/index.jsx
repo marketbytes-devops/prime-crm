@@ -1,3 +1,4 @@
+// src/components/ClientSelectionModal.jsx (unchanged)
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ClientSelectionModal = ({ onClose, onSelect }) => {

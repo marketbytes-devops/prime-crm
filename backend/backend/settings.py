@@ -32,6 +32,11 @@ INSTALLED_APPS = [
     'documentation',
     'authapp',
     'rfq',
+    'rfqchannels',
+    'Item',
+    'product',
+    'Team',
+
 ]
 
 MIDDLEWARE = [

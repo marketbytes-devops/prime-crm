@@ -13,6 +13,11 @@ import Profile from "./pages/Profile";
 import AddRFQ from "./pages/Execution/RFQ/AddRFQ";
 import ViewRFQ from "./pages/Execution/RFQ/ViewRFQ";
 import RFQChannels from "./pages/Settings/RFQChannels";
+import Product from "./pages/Settings/product";
+import Item from "./pages/Settings/items";
+import Unit from './pages/Settings/Unit' // New Unit page
+import ExistingClient from "./components/ExistingClient/ExistingClient";
+import Team from "./pages/Settings/Team";
 
 const ProtectedRoute = ({ children, isAuthenticated }) => {
   console.log("ProtectedRoute - isAuthenticated:", isAuthenticated);
@@ -46,7 +51,7 @@ function App() {
       errorElement: <div>Something went wrong. Please try again or contact support.</div>,
       children: [
         {
-          path: "/",
+          index: true,
           element: <Dashboard />,
         },
         {
@@ -62,19 +67,38 @@ function App() {
           element: <ViewRFQ />,
         },
         {
-          path: "/settings",
-          children: [
-            {
-              path: "rfq-channel",
-              element: <RFQChannels />,
-            },
-          ],
+          path: "/pre-job/view-rfq/:id",
+          element: <ViewRFQ />,
+        },
+        {
+          path: "/settings/rfq-channel",
+          element: <RFQChannels />,
+        },
+        {
+          path: "/settings/product",
+          element: <Product />,
+        },
+           {
+          path: "/settings/team",
+          element: <Team />,
+        },
+        {
+          path: "/pre-job/existing-client", // New route
+          element: <ExistingClient/>   // Render ExistingClient component
+        },
+        {
+          path: "/settings/item",
+          element: <Item />,
+        },
+        {
+          path: "/settings/unit",
+          element: <Unit />, // New route for Unit
         },
       ],
     },
   ]);
 
-  return <RouterProvider router={router} />;
+  return <RouterProvider router={router} fallbackElement={<p>Loading...</p>} />;
 }
 
 export default App;

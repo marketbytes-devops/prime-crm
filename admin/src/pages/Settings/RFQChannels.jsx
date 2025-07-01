@@ -12,7 +12,7 @@ const RFQChannels = () => {
     const fetchChannels = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get('/settings/rfq-channels/');
+        const response = await apiClient.get('rfq-channels/');
         setChannels(response.data);
       } catch (err) {
         console.error('Failed to fetch channels:', err);
@@ -38,7 +38,7 @@ const RFQChannels = () => {
     }
     setLoading(true);
     try {
-      const response = await apiClient.post('/settings/rfq-channels/', {
+      const response = await apiClient.post('rfq-channels/', {
         channel_name: channelName.trim(),
       });
       setChannels([...channels, response.data]);
@@ -55,7 +55,7 @@ const RFQChannels = () => {
   const handleDelete = async (channelId) => {
     if (window.confirm('Are you sure you want to delete this channel?')) {
       try {
-        await apiClient.delete(`/settings/rfq-channels/${channelId}/`);
+        await apiClient.delete(`rfq-channels/${channelId}/`);
         setChannels(channels.filter((channel) => channel.id !== channelId));
         setSuccess('Channel deleted successfully!');
         setError(null);

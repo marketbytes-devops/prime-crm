@@ -1,21 +1,37 @@
-import { useState } from 'react';
+// src/components/ExistingClientModal.jsx
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import apiClient from '../../helpers/apiClient';
+import { toast } from 'react-toastify';
 
 const ExistingClientModal = ({ onClose }) => {
-  const [selectedClient, setSelectedClient] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Placeholder client data; replace with API call or actual data source
-  const clients = [
-    { id: 1, company_name: 'Acme Corp', email: 'contact@acme.com', phone: '123-456-7890', address: '123 Acme St', attention_name: 'John Doe', attention_email: 'john@acme.com', attention_phone: '987-654-3210' },
-    { id: 2, company_name: 'Beta Inc', email: 'info@beta.com', phone: '456-789-0123', address: '456 Beta Rd', attention_name: 'Jane Smith', attention_email: 'jane@beta.com', attention_phone: '654-321-0987' },
-  ];
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        setLoading(true);
+        const response = await apiClient.get('/add-rfqs/'); // Fetch all RFQs
+        console.log('Clients API response:', response.data);
+        setClients(response.data || []);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to fetch clients:', err);
+        setError('Failed to load clients.');
+        toast.error('Failed to load clients.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchClients();
+  }, []);
 
   const handleClientSelect = (client) => {
-    setSelectedClient(client);
-    // Navigate to AddRFQ with the selected client's data
-    navigate('/pre-job/add-rfq', { state: { rfqData: client, isEditing: true } });
+    navigate('/pre-job/existing-client', { state: { rfqData: client, rfqId: client.id } }); // Pass rfqId
     onClose();
   };
 
@@ -26,7 +42,7 @@ const ExistingClientModal = ({ onClose }) => {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        className="fixed inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -46,17 +62,24 @@ const ExistingClientModal = ({ onClose }) => {
               ×
             </button>
           </div>
-          <div className="space-y-2">
-            {clients.map((client) => (
-              <button
-                key={client.id}
-                onClick={() => handleClientSelect(client)}
-                className="w-full text-left p-3 rounded bg-gray-100 hover:bg-gray-200 transition-colors"
-              >
-                {client.company_name}
-              </button>
-            ))}
-          </div>
+          {loading && <p>Loading clients...</p>}
+          {error && <p className="text-red-500">{error}</p>}
+          {!loading && !error && clients.length === 0 && (
+            <p className="text-gray-600">No clients found.</p>
+          )}
+          {!loading && !error && (
+            <div className="space-y-2">
+              {clients.map((client) => (
+                <button
+                  key={client.id}
+                  onClick={() => handleClientSelect(client)}
+                  className="w-full text-left p-3 rounded bg-gray-100 hover:bg-gray-200 transition-colors"
+                >
+                  {client.company_name} (ID: {client.id})
+                </button>
+              ))}
+            </div>
+          )}
         </motion.div>
       </motion.div>
     </AnimatePresence>
