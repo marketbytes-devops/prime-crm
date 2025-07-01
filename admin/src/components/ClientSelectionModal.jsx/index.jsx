@@ -1,11 +1,10 @@
-// src/components/ClientSelectionModal.jsx (unchanged)
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ClientSelectionModal = ({ onClose, onSelect }) => {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 flex items-center justify-center z-50 bg-gray-100 bg-opacity-90"
+        className="fixed inset-0 flex items-center justify-center z-50 backdrop-brightness-50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}

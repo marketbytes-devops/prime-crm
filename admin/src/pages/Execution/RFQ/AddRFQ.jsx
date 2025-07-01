@@ -14,6 +14,8 @@ const AddRFQ = () => {
   const [showClientModal, setShowClientModal] = useState(!rfqData.company_name && !isEditing && !id);
   const [showExistingClientModal, setShowExistingClientModal] = useState(false);
   const [rfqChannels, setRfqChannels] = useState([]);
+  const [items, setItems] = useState([]); // New state for items
+  const [products, setProducts] = useState([]); // New state for products
   const [loading, setLoading] = useState(true);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [productsLoading, setProductsLoading] = useState(false);
@@ -28,7 +30,6 @@ const AddRFQ = () => {
       try {
         setLoading(true);
         const response = await apiClient.get("/rfq-channels/");
-        console.log("RFQ Channels Response:", response.data);
         setRfqChannels(response.data.map((channel) => channel.channel_name));
       } catch (err) {
         console.error("Failed to fetch RFQ channels:", err.response || err.message);
@@ -41,10 +42,11 @@ const AddRFQ = () => {
       try {
         setItemsLoading(true);
         const response = await apiClient.get("/items/");
-        console.log("Items Response:", response.data);
+        setItems(response.data.map((item) => item.name)); // Assuming 'name' is the field
       } catch (err) {
         console.error("Failed to fetch items:", err.response || err.message);
         setError("Failed to load items.");
+        setItems([]);
       } finally {
         setItemsLoading(false);
       }
@@ -54,10 +56,11 @@ const AddRFQ = () => {
       try {
         setProductsLoading(true);
         const response = await apiClient.get("/products/");
-        console.log("Products Response:", response.data);
+        setProducts(response.data.map((product) => product.name)); // Assuming 'name' is the field
       } catch (err) {
         console.error("Failed to fetch products:", err.response || err.message);
         setError("Failed to load products.");
+        setProducts([]);
       } finally {
         setProductsLoading(false);
       }
@@ -67,11 +70,10 @@ const AddRFQ = () => {
       if (id) {
         try {
           const response = await apiClient.get(`/add-rfqs/${id}/`);
-          console.log("RFQ Data Response:", response.data);
           setInitialRfqData(response.data);
           if (response.data.items) {
-            setIncludeItems(response.data.items.some(item => item.item_name));
-            setIncludeProducts(response.data.items.some(item => item.product_name));
+            setIncludeItems(response.data.items.some((item) => item.item_name));
+            setIncludeProducts(response.data.items.some((item) => item.product_name));
           }
         } catch (err) {
           console.error("Failed to fetch RFQ data:", err.response || err.message);
@@ -188,9 +190,7 @@ const AddRFQ = () => {
           type: "select",
           required: true,
           placeholder: "Select Item",
-          searchEndpoint: "/items/",
-          optionLabel: "name",
-          optionValue: "name",
+          options: itemsLoading ? [] : items, // Use fetched items as options
         },
         ...baseFields,
       ]
@@ -204,9 +204,7 @@ const AddRFQ = () => {
           type: "select",
           required: true,
           placeholder: "Select Product",
-          searchEndpoint: "/products/",
-          optionLabel: "name",
-          optionValue: "name",
+          options: productsLoading ? [] : products, // Use fetched products as options
         },
         ...baseFields,
       ]

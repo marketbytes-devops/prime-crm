@@ -17,7 +17,6 @@ const ViewRFQ = () => {
         if (id) {
           response = await apiClient.get(`/add-rfqs/${id}/`);
         } else {
-          // Fetch all RFQs and get the latest one (assuming ID is incremental)
           const allResponse = await apiClient.get("/add-rfqs/");
           const rfqs = allResponse.data;
           if (rfqs.length > 0) {
@@ -118,7 +117,7 @@ const ViewRFQ = () => {
         singleFields={singleFields}
         repeatableFields={[]}
         title="View Company Details"
-        editPath={`/pre-job/add-rfq?id=${id || rfqData?.id}`} // Use ID if available
+        editPath={`/pre-job/add-rfq?id=${id || rfqData?.id}`} 
         showRepeatableFields={false}
         initialData={rfqData}
       />

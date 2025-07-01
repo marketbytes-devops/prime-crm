@@ -1,4 +1,3 @@
-// src/components/ExistingClientModal.jsx
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -15,9 +14,8 @@ const ExistingClientModal = ({ onClose }) => {
     const fetchClients = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get('/add-rfqs/'); // Fetch all RFQs
-        console.log('Clients API response:', response.data);
-        setClients(response.data || []);
+        const response = await apiClient.get('/add-rfqs/');
+        setClients(Array.isArray(response.data) ? response.data : response.data.results || []);
         setError(null);
       } catch (err) {
         console.error('Failed to fetch clients:', err);
@@ -31,25 +29,21 @@ const ExistingClientModal = ({ onClose }) => {
   }, []);
 
   const handleClientSelect = (client) => {
-    navigate('/pre-job/existing-client', { state: { rfqData: client, rfqId: client.id } }); // Pass rfqId
-    onClose();
-  };
-
-  const handleClose = () => {
+    navigate('/pre-job/existing-client', { state: { rfqData: client, rfqId: client.id } });
     onClose();
   };
 
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50"
+        className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={handleClose}
+        onClick={onClose}
       >
         <motion.div
-          className="bg-white rounded-lg p-6 w-full max-w-md"
+          className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl border border-gray-200 transform transition-all duration-300 hover:shadow-3xl"
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.8, opacity: 0 }}
@@ -57,8 +51,8 @@ const ExistingClientModal = ({ onClose }) => {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Select Existing Client</h2>
-            <button onClick={handleClose} className="text-gray-600 hover:text-gray-800">
+            <h2 className="text-xl font-semibold text-indigo-600">Select Existing Client</h2>
+            <button onClick={onClose} className="text-gray-600 hover:text-gray-800">
               ×
             </button>
           </div>
@@ -68,7 +62,7 @@ const ExistingClientModal = ({ onClose }) => {
             <p className="text-gray-600">No clients found.</p>
           )}
           {!loading && !error && (
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-60 overflow-y-auto">
               {clients.map((client) => (
                 <button
                   key={client.id}
