@@ -1,33 +1,32 @@
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate, useParams, Link } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import apiClient from "../../../helpers/apiClient";
 import CRMManager from "../../../components/CRMManager";
 import ClientSelectionModal from "../../../components/ClientSelectionModal.jsx";
-import { toast } from "react-toastify";
- 
+import ExistingClientModal from "../../../components/ExistingClientModal";
+import ExistingClient from "../../../components/ExistingClient/ExistingClient.jsx";
+
 const AddRFQ = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { id } = useParams();
   const { rfqData = {}, isEditing = false } = location.state || {};
   const [showClientModal, setShowClientModal] = useState(!rfqData.company_name && !isEditing && !id);
+  const [showExistingClientModal, setShowExistingClientModal] = useState(false);
   const [rfqChannels, setRfqChannels] = useState([]);
   const [items, setItems] = useState([]);
   const [products, setProducts] = useState([]);
-  const [units, setUnits] = useState([]);
-  const [teamMembers, setTeamMembers] = useState([]);
+  const [units, setUnits] = useState([]); // New state for units
   const [loading, setLoading] = useState(true);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [productsLoading, setProductsLoading] = useState(false);
-  const [unitsLoading, setUnitsLoading] = useState(false);
-  const [teamMembersLoading, setTeamMembersLoading] = useState(false);
+  const [unitsLoading, setUnitsLoading] = useState(false); // New state for units loading
   const [error, setError] = useState(null);
   const [initialRfqData, setInitialRfqData] = useState(rfqData);
   const [currentStep, setCurrentStep] = useState(1);
   const [includeItems, setIncludeItems] = useState(false);
   const [includeProducts, setIncludeProducts] = useState(false);
-  const [formData, setFormData] = useState({ items: [] });
- 
+
   useEffect(() => {
     const fetchRfqChannels = async () => {
       try {
@@ -40,7 +39,7 @@ const AddRFQ = () => {
         setRfqChannels([]);
       }
     };
- 
+
     const fetchItems = async () => {
       try {
         setItemsLoading(true);
@@ -54,7 +53,7 @@ const AddRFQ = () => {
         setItemsLoading(false);
       }
     };
- 
+
     const fetchProducts = async () => {
       try {
         setProductsLoading(true);
@@ -68,12 +67,12 @@ const AddRFQ = () => {
         setProductsLoading(false);
       }
     };
- 
+
     const fetchUnits = async () => {
       try {
         setUnitsLoading(true);
         const response = await apiClient.get("/units/");
-        setUnits(response.data.map((unit) => unit.name));
+        setUnits(response.data.map((unit) => unit.name)); // Assuming 'name' is the field
       } catch (err) {
         console.error("Failed to fetch units:", err.response || err.message);
         setError("Failed to load units.");
@@ -82,52 +81,15 @@ const AddRFQ = () => {
         setUnitsLoading(false);
       }
     };
- 
-    const fetchTeamMembers = async () => {
-      try {
-        setTeamMembersLoading(true);
-        const response = await apiClient.get("/teams/");
-        if (response.data.length === 0) {
-          setError("No team members available. Please add team members first.");
-        }
-        setTeamMembers(response.data.map((member) => ({
-          value: member.id,
-          label: `${member.name} (${member.designation})`,
-          email: member.email
-        })));
-      } catch (err) {
-        console.error("Failed to fetch team members:", err.response || err.message);
-        setError("Failed to load team members.");
-        setTeamMembers([]);
-      } finally {
-        setTeamMembersLoading(false);
-      }
-    };
- 
+
     const fetchRfqData = async () => {
       if (id) {
         try {
           const response = await apiClient.get(`/add-rfqs/${id}/`);
-          const data = {
-            ...response.data,
-            assign_to: response.data.assign_to ? String(response.data.assign_to) : "",
-            due_date: response.data.due_date || "",
-          };
-          setInitialRfqData(data);
-          setFormData(data);
+          setInitialRfqData(response.data);
           if (response.data.items) {
             setIncludeItems(response.data.items.some((item) => item.item_name));
             setIncludeProducts(response.data.items.some((item) => item.product_name));
-            setFormData((prev) => ({
-              ...prev,
-              items: response.data.items.map((item, index) => ({
-                id: Date.now() + index,
-                item_name: item.item_name || "",
-                product_name: item.product_name || "",
-                quantity: item.quantity || "",
-                unit: item.unit || "",
-              })),
-            }));
           }
         } catch (err) {
           console.error("Failed to fetch RFQ data:", err.response || err.message);
@@ -135,27 +97,20 @@ const AddRFQ = () => {
         }
       }
     };
- 
-    Promise.all([
-      fetchRfqChannels(),
-      fetchItems(),
-      fetchProducts(),
-      fetchUnits(),
-      fetchTeamMembers(),
-      fetchRfqData()
-    ]).finally(() => {
+
+    Promise.all([fetchRfqChannels(), fetchItems(), fetchProducts(), fetchUnits(), fetchRfqData()]).finally(() => {
       setLoading(false);
     });
   }, [id]);
- 
+
   const handleClientSelect = (type) => {
     setShowClientModal(false);
     if (type === "existing") {
-      navigate('/pre-job/existing-client');
+      setShowExistingClientModal(true);
     }
   };
- 
-  const companyFields = [
+
+  const companyAttentionFields = [
     {
       name: "company_name",
       label: "Company Name",
@@ -199,9 +154,6 @@ const AddRFQ = () => {
       options: loading ? [] : rfqChannels,
       placeholder: "Select RFQ Channel",
     },
-  ];
- 
-  const attentionFields = [
     {
       name: "attention_name",
       label: "Attention Name",
@@ -224,26 +176,7 @@ const AddRFQ = () => {
       placeholder: "Enter Attention Email",
     },
   ];
- 
-  const stepTwoFields = [
-    {
-      name: "due_date",
-      label: "Due Date",
-      type: "date",
-      required: false,
-      placeholder: "Select Due Date",
-    },
-    {
-      name: "assign_to",
-      label: "Assign To",
-      type: "select",
-      required: false,
-      placeholder: "Select Team Member",
-      options: teamMembersLoading ? [] : teamMembers.map(member => member.label),
-      optionValues: teamMembersLoading ? [] : teamMembers.map(member => member.value),
-    },
-  ];
- 
+
   const baseFields = [
     {
       name: "quantity",
@@ -259,10 +192,10 @@ const AddRFQ = () => {
       type: "select",
       required: true,
       placeholder: "Select Unit",
-      options: unitsLoading ? [] : units,
+      options: unitsLoading ? [] : units, 
     },
   ];
- 
+
   const itemFields = includeItems
     ? [
         {
@@ -276,7 +209,7 @@ const AddRFQ = () => {
         ...baseFields,
       ]
     : [];
- 
+
   const productFields = includeProducts
     ? [
         {
@@ -290,32 +223,18 @@ const AddRFQ = () => {
         ...baseFields,
       ]
     : [];
- 
+
   const currentFields = [...itemFields, ...productFields];
- 
-  const handleInputChange = (e, entryId) => {
-    const { name, value } = e.target;
-    setFormData((prev) => {
-      const newItems = prev.items.map((item) =>
-        item.id === entryId ? { ...item, [name]: value } : item
-      );
-      if (!newItems.some((item) => item.id === entryId)) {
-        newItems.push({ id: entryId, [name]: value });
-      }
-      return { ...prev, items: newItems };
-    });
-  };
- 
-  const handleSingleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
- 
-  if (loading || itemsLoading || productsLoading || unitsLoading || teamMembersLoading) return <p>Loading data...</p>;
+
+  if (location.pathname === "/pre-job/existing-client") {
+    return <ExistingClient />;
+  }
+
+  if (loading || itemsLoading || productsLoading || unitsLoading) return <p>Loading data...</p>;
   if (error) return <p className="text-red-600">{error}</p>;
- 
+
   return (
-    <div className="container mx-auto p-4 bg-blue-50 min-h-screen">
+    <div className="container mx-auto p-4 relative">
       {showClientModal && (
         <div className="fixed inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50">
           <ClientSelectionModal
@@ -324,28 +243,18 @@ const AddRFQ = () => {
           />
         </div>
       )}
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center">
-          <button
-            onClick={() => navigate("/pre-job/view-rfq")}
-            className="text-gray-500 hover:text-gray-700 mr-4"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          <h1 className="text-lg font-medium text-gray-800">Add Company Details</h1>
+      {showExistingClientModal && (
+        <div className="fixed inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50">
+          <ExistingClientModal
+            onClose={() => setShowExistingClientModal(false)}
+          />
         </div>
-        <div className="flex items-center">
-          <span className="mr-4 text-gray-800">prime</span>
-          <Link to="/logout" className="text-blue-500 hover:underline">Logout</Link>
-        </div>
-      </div>
+      )}
       <CRMManager
         apiBaseUrl="/add-rfqs/"
         fields={currentFields}
-        title=""
-        singleFields={currentStep === 1 ? [...companyFields, ...attentionFields] : stepTwoFields}
+        title={isEditing || id ? "Edit Company Details" : "Add Company Details"}
+        singleFields={currentStep === 1 ? companyAttentionFields : []}
         initialData={initialRfqData}
         isEditing={isEditing || !!id}
         showRepeatableFields={currentStep === 2}
@@ -355,37 +264,6 @@ const AddRFQ = () => {
           setCurrentStep(2);
         }}
         totalSteps={2}
-        onInputChange={handleInputChange}
-        onSingleInputChange={handleSingleInputChange}
-        formData={formData}
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const combinedData = {
-            ...formData,
-            assign_to: formData.assign_to ? parseInt(formData.assign_to) : null,
-            items: formData.items.map((item) => ({
-              item_name: item.item_name || "",
-              product_name: item.product_name || "",
-              quantity: item.quantity || "",
-              unit: item.unit || "",
-            })),
-          };
- 
-          try {
-            if (isEditing && initialRfqData?.id) {
-              await apiClient.put(`/add-rfqs/${initialRfqData.id}/`, combinedData);
-              toast.success("RFQ updated successfully!");
-            } else {
-              const response = await apiClient.post('/add-rfqs/', combinedData);
-              toast.success("RFQ saved successfully!");
-              console.log("RFQ saved response:", response.data);
-            }
-            navigate("/pre-job/view-rfq");
-          } catch (error) {
-            console.error("Error submitting to /add-rfq/:", error.response?.data || error.message);
-            toast.error(`Failed to save RFQ: ${error.response?.data?.message || "Please check the required fields."}`);
-          }
-        }}
       >
         {currentStep === 2 && (
           <div className="mb-4">
@@ -409,24 +287,9 @@ const AddRFQ = () => {
             </label>
           </div>
         )}
-        {currentStep === 2 && initialRfqData?.due_date && (
-          <div className="mb-4">
-            <p className="text-sm font-medium text-gray-800">
-              Due Date: {new Date(initialRfqData.due_date).toLocaleDateString()}
-            </p>
-          </div>
-        )}
-        {currentStep === 2 && initialRfqData?.assign_to && teamMembers.length > 0 && (
-          <div className="mb-4">
-            <p className="text-sm font-medium text-gray-800">
-              Assigned To: {teamMembers.find(member => member.value === parseInt(initialRfqData.assign_to))?.label}
-              (Email: {teamMembers.find(member => member.value === parseInt(initialRfqData.assign_to))?.email || 'Not available'})
-            </p>
-          </div>
-        )}
       </CRMManager>
     </div>
   );
 };
- 
+
 export default AddRFQ;

@@ -83,8 +83,8 @@ function App() {
           element: <Team />,
         },
         {
-          path: "/pre-job/existing-client", // New route
-          element: <ExistingClient/>   // Render ExistingClient component
+          path: "/pre-job/existing-client", 
+          element: <ExistingClient/>   
         },
         {
           path: "/settings/item",

@@ -1,35 +1,11 @@
-import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../../helpers/apiClient';
-import { toast } from 'react-toastify';
 
 const ExistingClientModal = ({ onClose }) => {
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchClients = async () => {
-      try {
-        setLoading(true);
-        const response = await apiClient.get('/add-rfqs/');
-        setClients(Array.isArray(response.data) ? response.data : response.data.results || []);
-        setError(null);
-      } catch (err) {
-        console.error('Failed to fetch clients:', err);
-        setError('Failed to load clients.');
-        toast.error('Failed to load clients.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchClients();
-  }, []);
-
-  const handleClientSelect = (client) => {
-    navigate('/pre-job/existing-client', { state: { rfqData: client, rfqId: client.id } });
+  const handleProceed = () => {
+    navigate('/pre-job/existing-client');
     onClose();
   };
 
@@ -50,30 +26,20 @@ const ExistingClientModal = ({ onClose }) => {
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-indigo-600">Select Existing Client</h2>
-            <button onClick={onClose} className="text-gray-600 hover:text-gray-800">
-              ×
-            </button>
-          </div>
-          {loading && <p>Loading clients...</p>}
-          {error && <p className="text-red-500">{error}</p>}
-          {!loading && !error && clients.length === 0 && (
-            <p className="text-gray-600">No clients found.</p>
-          )}
-          {!loading && !error && (
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {clients.map((client) => (
-                <button
-                  key={client.id}
-                  onClick={() => handleClientSelect(client)}
-                  className="w-full text-left p-3 rounded bg-gray-100 hover:bg-gray-200 transition-colors"
-                >
-                  {client.company_name} (ID: {client.id})
-                </button>
-              ))}
-            </div>
-          )}
+          <h2 className="text-xl font-semibold text-indigo-600 mb-4">Proceed to Select Client</h2>
+          <p className="mb-4">Click below to select an existing client.</p>
+          <button
+            onClick={handleProceed}
+            className="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600"
+          >
+            Proceed
+          </button>
+          <button
+            onClick={onClose}
+            className="ml-4 text-gray-600 hover:text-gray-800"
+          >
+            Cancel
+          </button>
         </motion.div>
       </motion.div>
     </AnimatePresence>
