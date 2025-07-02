@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { Plus, Trash, ArrowRight } from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "../../../helpers/apiClient";
@@ -10,9 +10,7 @@ const AddRFQ = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { rfqData = {}, isEditing = false } = location.state || {};
-  const [showClientModal, setShowClientModal] = useState(
-    !rfqData.company_name && !isEditing && !id
-  );
+  const [showClientModal, setShowClientModal] = useState(!rfqData.company_name && !isEditing && !id);
   const [rfqChannels, setRfqChannels] = useState([]);
   const [items, setItems] = useState([]);
   const [products, setProducts] = useState([]);
@@ -24,23 +22,28 @@ const AddRFQ = () => {
   const [unitsLoading, setUnitsLoading] = useState(false);
   const [teamMembersLoading, setTeamMembersLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [initialRfqData, setInitialRfqData] = useState(rfqData);
   const [currentStep, setCurrentStep] = useState(1);
-  const [includeItems, setIncludeItems] = useState(false);
-  const [includeProducts, setIncludeProducts] = useState(false);
+  const [includeItems, setIncludeItems] = useState(rfqData.items?.some((item) => item.item_name) || false);
+  const [includeProducts, setIncludeProducts] = useState(rfqData.items?.some((item) => item.product_name) || false);
   const [formData, setFormData] = useState({
-    company_name: "",
-    reference: "",
-    address: "",
-    phone: "",
-    email: "",
-    rfq_channel: "",
-    attention_name: "",
-    attention_phone: "",
-    attention_email: "",
-    due_date: "",
-    assign_to: "",
-    items: [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }],
+    company_name: rfqData.company_name || "",
+    reference: rfqData.reference || "",
+    address: rfqData.address || "",
+    phone: rfqData.phone || "",
+    email: rfqData.email || "",
+    rfq_channel: rfqData.rfq_channel || "",
+    attention_name: rfqData.attention_name || "",
+    attention_phone: rfqData.attention_phone || "",
+    attention_email: rfqData.attention_email || "",
+    due_date: rfqData.due_date || "",
+    assign_to: rfqData.assign_to ? String(rfqData.assign_to) : "",
+    items: rfqData.items?.map((item, index) => ({
+      id: Date.now() + index,
+      item_name: item.item_name || "",
+      product_name: item.product_name || "",
+      quantity: item.quantity || "",
+      unit: item.unit || "",
+    })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -123,13 +126,21 @@ const AddRFQ = () => {
     };
 
     const fetchRfqData = async () => {
-      if (id) {
+      if (id && !rfqData.id) {
         try {
           const response = await apiClient.get(`/add-rfqs/${id}/`);
           const data = {
-            ...response.data,
-            assign_to: response.data.assign_to ? String(response.data.assign_to) : "",
+            company_name: response.data.company_name || "",
+            reference: response.data.reference || "",
+            address: response.data.address || "",
+            phone: response.data.phone || "",
+            email: response.data.email || "",
+            rfq_channel: response.data.rfq_channel || "",
+            attention_name: response.data.attention_name || "",
+            attention_phone: response.data.attention_phone || "",
+            attention_email: response.data.attention_email || "",
             due_date: response.data.due_date || "",
+            assign_to: response.data.assign_to ? String(response.data.assign_to) : "",
             items: response.data.items?.map((item, index) => ({
               id: Date.now() + index,
               item_name: item.item_name || "",
@@ -138,7 +149,6 @@ const AddRFQ = () => {
               unit: item.unit || "",
             })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }],
           };
-          setInitialRfqData(data);
           setFormData(data);
           setIncludeItems(data.items.some((item) => item.item_name));
           setIncludeProducts(data.items.some((item) => item.product_name));
@@ -159,7 +169,7 @@ const AddRFQ = () => {
     ]).finally(() => {
       setLoading(false);
     });
-  }, [id]);
+  }, [id, rfqData.id]);
 
   const handleClientSelect = (type) => {
     setShowClientModal(false);
@@ -274,16 +284,16 @@ const AddRFQ = () => {
     };
 
     try {
-      if (isEditing && initialRfqData?.id) {
-        await apiClient.put(`/add-rfqs/${initialRfqData.id}/`, combinedData);
+      if (isEditing && id) {
+        await apiClient.put(`/add-rfqs/${id}/`, combinedData);
         toast.success("RFQ updated successfully!");
       } else {
         await apiClient.post("/add-rfqs/", combinedData);
-        toast.success("RFQ saved successfully!");
+        toast.success("RFQ created successfully!");
       }
       navigate("/pre-job/view-rfq");
     } catch (error) {
-      console.error("Error submitting to /add-rfq/:", error.response?.data || error.message);
+      console.error("Error submitting RFQ:", error.response?.data || error.message);
       toast.error(
         `Failed to save RFQ: ${
           error.response?.data?.message || "Please check the required fields."
@@ -501,23 +511,23 @@ const AddRFQ = () => {
   };
 
   if (loading || itemsLoading || productsLoading || unitsLoading || teamMembersLoading) {
-    return <p>Loading data...</p>;
+    return <p className="text-gray-600 text-center">Loading data...</p>;
   }
   if (error) {
-    return <p className="text-red-600">{error}</p>;
+    return <p className="text-red-600 text-center">{error}</p>;
   }
 
   return (
-    <div className="container mx-auto p-4 bg-blue-50 min-h-screen">
+    <div className="container mx-auto p-6 bg-gray-50 min-h-screen">
       {showClientModal && (
-        <div className="fixed inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 flex items-center justify-center z-50">
           <ClientSelectionModal
             onClose={() => setShowClientModal(false)}
             onSelect={handleClientSelect}
           />
         </div>
       )}
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-6">
         <div className="flex items-center">
           <button
             onClick={() => navigate("/pre-job/view-rfq")}
@@ -537,24 +547,24 @@ const AddRFQ = () => {
               />
             </svg>
           </button>
-          <h1 className="text-lg font-medium text-gray-800">
+          <h1 className="text-2xl font-semibold text-gray-800">
             {isEditing ? "Edit RFQ" : "Add RFQ"}
           </h1>
         </div>
       </div>
-      <div className="mx-auto p-4 bg-white rounded-lg shadow-md">
+      <div className="mx-auto p-6 bg-white rounded-lg shadow-md">
         <form onSubmit={handleSubmit} className="mb-6">
           {currentStep === 1 && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[...companyFields, ...attentionFields].map((field) => renderSingleField(field))}
             </div>
           )}
           {currentStep === 2 && (
             <>
-              <div className="mb-4 grid grid-cols-2 gap-4">
+              <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                 {stepTwoFields.map((field) => renderSingleField(field))}
               </div>
-              <div className="mb-4">
+              <div className="mb-6">
                 <label className="mr-4">
                   <input
                     type="checkbox"
@@ -579,7 +589,7 @@ const AddRFQ = () => {
                   {formData.items.map((entry) => (
                     <div
                       key={entry.id}
-                      className="mb-4 p-4 bg-gray-100 rounded grid grid-cols-3 gap-4"
+                      className="mb-4 p-4 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4"
                     >
                       {includeItems && renderEntryField(
                         {
@@ -626,7 +636,7 @@ const AddRFQ = () => {
                         entry.id
                       )}
                       {formData.items.length > 1 && (
-                        <div className="flex items-center justify-end col-span-3">
+                        <div className="flex items-center justify-end md:col-span-3">
                           <button
                             type="button"
                             onClick={() => removeFormBlock(entry.id)}
@@ -641,45 +651,21 @@ const AddRFQ = () => {
                   <button
                     type="button"
                     onClick={addFormBlock}
-                    className="bg-green-500 text-white px-4 py-2 text-sm rounded hover:bg-green-600 transition-colors duration-200 flex items-center mb-4"
+                    className="bg-green-500 text-white px-4 py-2 text-sm rounded-lg hover:bg-green-600 transition-colors duration-200 flex items-center mb-4"
                   >
-                    <Plus size= "18" className="mr-2" /> Add Entry
+                    <Plus size={18} className="mr-2" /> Add Entry
                   </button>
                 </>
               )}
-              {initialRfqData?.due_date && (
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-800">
-                    Due Date: {new Date(initialRfqData.due_date).toLocaleDateString()}
-                  </p>
-                </div>
-              )}
-              {initialRfqData?.assign_to && teamMembers.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-800">
-                    Assigned To:{" "}
-                    {
-                      teamMembers.find(
-                        (member) => member.value === parseInt(initialRfqData.assign_to)
-                      )?.label
-                    }
-                    (Email:{" "}
-                    {teamMembers.find(
-                      (member) => member.value === parseInt(initialRfqData.assign_to)
-                    )?.email || "Not available"}
-                    )
-                  </p>
-                </div>
-              )}
             </>
           )}
-          <div className="flex justify-end mt-4">
+          <div className="flex justify-end mt-6">
             {currentStep === 1 ? (
               <button
                 type="button"
                 onClick={() => setCurrentStep(2)}
                 disabled={isSubmitting}
-                className="bg-indigo-500 text-white px-4 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200 flex items-center"
+                className="bg-indigo-500 text-white px-4 py-2 text-sm rounded-lg hover:bg-indigo-600 transition-colors duration-200 flex items-center"
               >
                 Next <ArrowRight size={18} className="ml-2" />
               </button>
@@ -687,7 +673,7 @@ const AddRFQ = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-indigo-500 text-white px-4 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
+                className="bg-indigo-500 text-white px-4 py-2 text-sm rounded-lg hover:bg-indigo-600 transition-colors duration-200"
               >
                 {isSubmitting ? "Saving..." : "Save"}
               </button>

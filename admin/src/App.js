@@ -15,9 +15,10 @@ import ViewRFQ from "./pages/Execution/RFQ/ViewRFQ";
 import RFQChannels from "./pages/Settings/RFQChannels";
 import Product from "./pages/Settings/product";
 import Item from "./pages/Settings/items";
-import Unit from './pages/Settings/Unit' // New Unit page
+import Unit from './pages/Settings/Unit';
 import ExistingClient from "./components/ExistingClient/ExistingClient";
 import Team from "./pages/Settings/Team";
+import EditRFQ from "./pages/Execution/RFQ/EditRFQ";
 
 const ProtectedRoute = ({ children, isAuthenticated }) => {
   console.log("ProtectedRoute - isAuthenticated:", isAuthenticated);
@@ -63,11 +64,11 @@ function App() {
           element: <AddRFQ />,
         },
         {
-          path: "/pre-job/view-rfq",
-          element: <ViewRFQ />,
+          path: "/pre-job/edit-rfq",
+          element: <EditRFQ />,
         },
         {
-          path: "/pre-job/view-rfq/:id",
+          path: "/pre-job/view-rfq",
           element: <ViewRFQ />,
         },
         {
@@ -78,13 +79,13 @@ function App() {
           path: "/settings/product",
           element: <Product />,
         },
-           {
+        {
           path: "/settings/team",
           element: <Team />,
         },
         {
-          path: "/pre-job/existing-client", 
-          element: <ExistingClient/>   
+          path: "/pre-job/existing-client",
+          element: <ExistingClient />,
         },
         {
           path: "/settings/item",
@@ -92,7 +93,7 @@ function App() {
         },
         {
           path: "/settings/unit",
-          element: <Unit />, // New route for Unit
+          element: <Unit />,
         },
       ],
     },

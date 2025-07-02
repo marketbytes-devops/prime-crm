@@ -3,24 +3,25 @@ import { useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
 import { Plus, Trash, ArrowRight } from "lucide-react";
 import { toast } from "react-toastify";
-import apiClient from '../../helpers/apiClient';
+import apiClient from "../../helpers/apiClient";
 
 const CRMManager = ({
   apiBaseUrl,
   fields,
-  title,
   singleFields = [],
+  title = "",
   initialData = null,
   isEditing = false,
   showRepeatableFields = true,
-  currentStep,
-  onNext,
-  totalSteps,
+  currentStep = 2,
+  onNext = () => {},
+  totalSteps = 2,
   children,
   onInputChange,
   onSingleInputChange,
   formData,
   onSubmit,
+  redirectPath = "/pre-job/view-rfq",
 }) => {
   const navigate = useNavigate();
   const [formEntries, setFormEntries] = useState(
@@ -38,15 +39,16 @@ const CRMManager = ({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dropdownOptions, setDropdownOptions] = useState({});
-  const [activeDropdown, setActiveDropdown] = useState(null); // Track active dropdown
+  const [singleFieldOptions, setSingleFieldOptions] = useState({});
+  const [activeDropdown, setActiveDropdown] = useState(null);
 
+  // Fetch options for repeatable fields
   useEffect(() => {
     const fetchDropdownOptions = async () => {
       const options = {};
       for (const field of fields) {
         if (field.searchEndpoint) {
           try {
-            console.log(`Fetching options for ${field.name} from ${field.searchEndpoint}`);
             const response = await apiClient.get(field.searchEndpoint);
             options[field.name] = response.data
               .map((item) => ({
@@ -56,6 +58,7 @@ const CRMManager = ({
               .sort((a, b) => a.label.localeCompare(b.label));
           } catch (err) {
             console.error(`Failed to fetch options for ${field.name}:`, err);
+            options[field.name] = [];
           }
         } else {
           options[field.name] = field.options || [];
@@ -65,6 +68,33 @@ const CRMManager = ({
     };
     if (currentStep === 2 && fields.length > 0) fetchDropdownOptions();
   }, [fields, currentStep]);
+
+  // Fetch options for single fields
+  useEffect(() => {
+    const fetchSingleFieldOptions = async () => {
+      const options = {};
+      for (const field of singleFields) {
+        if (field.searchEndpoint) {
+          try {
+            const response = await apiClient.get(field.searchEndpoint);
+            options[field.name] = response.data
+              .map((item) => ({
+                label: item[field.optionLabel] || item.name,
+                value: item[field.optionValue] || item.name,
+              }))
+              .sort((a, b) => a.label.localeCompare(b.label));
+          } catch (err) {
+            console.error(`Failed to fetch options for ${field.name}:`, err);
+            options[field.name] = [];
+          }
+        } else {
+          options[field.name] = field.options || [];
+        }
+      }
+      setSingleFieldOptions(options);
+    };
+    if (singleFields.length > 0) fetchSingleFieldOptions();
+  }, [singleFields]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -110,10 +140,7 @@ const CRMManager = ({
   const addFormBlock = () => {
     const newId = Date.now();
     setFormEntries((prev) => [...prev, { id: newId, data: {} }]);
-    setFormData((prev) => ({
-      ...prev,
-      items: [...prev.items, { id: newId, item_name: "", product_name: "", quantity: "", unit: "" }],
-    }));
+    onInputChange(null, newId, { item_name: "", product_name: "", quantity: "", unit: "" });
   };
 
   const removeFormBlock = (entryId) => {
@@ -122,15 +149,11 @@ const CRMManager = ({
       return;
     }
     setFormEntries((prev) => prev.filter((entry) => entry.id !== entryId));
-    setFormData((prev) => ({
-      ...prev,
-      items: prev.items.filter((item) => item.id !== entryId),
-    }));
+    onInputChange(null, entryId, null, true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("HandleSubmit triggered");
     setIsSubmitting(true);
 
     const singleValidationError = validateSingleFields();
@@ -172,18 +195,17 @@ const CRMManager = ({
     };
 
     try {
-      console.log("Submitting data to /add-rfqs/:", combinedData);
       if (isEditing && initialData?.id) {
         await apiClient.put(`${apiBaseUrl}${initialData.id}/`, combinedData);
-        toast.success("RFQ updated!");
+        toast.success("Data updated successfully!");
       } else {
         await apiClient.post(apiBaseUrl, combinedData);
-        toast.success("RFQ saved!");
+        toast.success("Data saved successfully!");
       }
-      navigate("/pre-job/view-rfq");
+      navigate(redirectPath, { state: { refresh: true } });
     } catch (error) {
-      console.error("Error submitting to /add-rfqs/:", error.response?.data || error.message);
-      toast.error("Failed to save RFQ. Please check the required fields.");
+      console.error(`Error submitting to ${apiBaseUrl}:`, error.response?.data || error.message);
+      toast.error("Failed to save data. Please check the required fields.");
     } finally {
       setIsSubmitting(false);
     }
@@ -192,7 +214,7 @@ const CRMManager = ({
   const renderField = (field, entryId) => {
     const entry = formEntries.find((e) => e.id === entryId);
     const value = entry?.data[field.name] || "";
-    const options = dropdownOptions[field.name] || field.options || [];
+    const options = dropdownOptions[field.name] || [];
 
     if (field.type === "select" && field.searchEndpoint) {
       const filteredOptions = options
@@ -213,12 +235,11 @@ const CRMManager = ({
             name={field.name}
             value={value}
             onChange={(e) => {
-              console.log("Input event:", e.target.name, e.target.value, entryId);
               onInputChange(e, entryId);
               setActiveDropdown(`${field.name}-${entryId}`);
             }}
             onFocus={() => setActiveDropdown(`${field.name}-${entryId}`)}
-            placeholder={field.placeholder}
+            placeholder={field.placeholder || `Select ${field.label}`}
             disabled={false}
             className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
@@ -242,7 +263,7 @@ const CRMManager = ({
         </div>
       );
     }
-    if (field.type === "select" && !field.searchEndpoint) {
+    if (field.type === "select") {
       return (
         <div key={field.name} className="mb-4">
           <label
@@ -255,16 +276,13 @@ const CRMManager = ({
             id={`${field.name}-${entryId}`}
             name={field.name}
             value={value || ""}
-            onChange={(e) => {
-              console.log("Select change:", { name: field.name, value: e.target.value, entryId });
-              onInputChange(e, entryId);
-            }}
+            onChange={(e) => onInputChange(e, entryId)}
             disabled={false}
             className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           >
             <option value="" disabled>
-              {field.placeholder}
+              {field.placeholder || `Select ${field.label}`}
             </option>
             {options.map((option, index) => (
               <option
@@ -292,7 +310,7 @@ const CRMManager = ({
             name={field.name}
             value={value}
             onChange={(e) => onInputChange(e, entryId)}
-            placeholder={field.placeholder}
+            placeholder={field.placeholder || `Enter ${field.label}`}
             disabled={false}
             className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
@@ -313,11 +331,8 @@ const CRMManager = ({
           type={field.type}
           name={field.name}
           value={value || ""}
-          onChange={(e) => {
-            console.log("Input event:", e.target.name, e.target.value, entryId);
-            onInputChange(e, entryId);
-          }}
-          placeholder={field.placeholder}
+          onChange={(e) => onInputChange(e, entryId)}
+          placeholder={field.placeholder || `Enter ${field.label}`}
           min={field.min}
           disabled={false}
           className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
@@ -329,6 +344,55 @@ const CRMManager = ({
 
   const renderSingleField = (field) => {
     const value = formData[field.name] || "";
+    const options = singleFieldOptions[field.name] || field.options || [];
+
+    if (field.type === "select" && field.searchEndpoint) {
+      const filteredOptions = options
+        .filter((option) => option.label.toLowerCase().includes(value.toLowerCase()))
+        .sort((a, b) => a.label.localeCompare(b.label));
+
+      return (
+        <div key={field.name} className="mb-4 relative dropdown-container">
+          <label
+            htmlFor={field.name}
+            className="block text-xs font-medium text-gray-800 mb-1"
+          >
+            {field.label} {field.required && <span className="text-red-500">*</span>}
+          </label>
+          <input
+            type="text"
+            id={field.name}
+            name={field.name}
+            value={value}
+            onChange={(e) => {
+              onSingleInputChange(e);
+              setActiveDropdown(field.name);
+            }}
+            onFocus={() => setActiveDropdown(field.name)}
+            placeholder={field.placeholder || `Select ${field.label}`}
+            disabled={false}
+            className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+            aria-required={field.required}
+          />
+          {activeDropdown === field.name && value && filteredOptions.length > 0 && (
+            <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
+              {filteredOptions.map((option) => (
+                <li
+                  key={option.value}
+                  className="p-2 hover:bg-gray-100 cursor-pointer"
+                  onClick={() => {
+                    onSingleInputChange({ target: { name: field.name, value: option.value } });
+                    setActiveDropdown(null);
+                  }}
+                >
+                  {option.label}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    }
     if (field.type === "select") {
       return (
         <div key={field.name} className="mb-4">
@@ -348,11 +412,11 @@ const CRMManager = ({
             aria-required={field.required}
           >
             <option value="" disabled>
-              {field.placeholder}
+              {field.placeholder || `Select ${field.label}`}
             </option>
-            {field.options.map((option, index) => (
+            {options.map((option, index) => (
               <option
-                key={option}
+                key={index}
                 value={field.optionValues ? field.optionValues[index] : option}
               >
                 {option}
@@ -376,7 +440,7 @@ const CRMManager = ({
             name={field.name}
             value={value}
             onChange={onSingleInputChange}
-            placeholder={field.placeholder}
+            placeholder={field.placeholder || `Enter ${field.label}`}
             disabled={false}
             className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
@@ -398,7 +462,7 @@ const CRMManager = ({
           name={field.name}
           value={value}
           onChange={onSingleInputChange}
-          placeholder={field.placeholder}
+          placeholder={field.placeholder || `Enter ${field.label}`}
           min={field.min}
           disabled={false}
           className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
@@ -425,8 +489,7 @@ const CRMManager = ({
       </style>
       {title && <h2 className="text-lg font-medium mb-6 text-gray-800">{title}</h2>}
       <form onSubmit={onSubmit || handleSubmit} className="mb-6">
-        {currentStep === 1 &&
-          singleFields.map((field) => renderSingleField(field))}
+        {currentStep === 1 && singleFields.map((field) => renderSingleField(field))}
         {currentStep === 2 && (
           <>
             {singleFields.length > 0 && (
@@ -468,7 +531,7 @@ const CRMManager = ({
         )}
         {children}
         <div className="flex justify-end mt-4">
-          {currentStep === 1 ? (
+          {currentStep === 1 && totalSteps > 1 ? (
             <button
               type="button"
               onClick={(e) => {
@@ -512,7 +575,6 @@ CRMManager.propTypes = {
       optionValues: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
     })
   ).isRequired,
-  title: PropTypes.string.isRequired,
   singleFields: PropTypes.arrayOf(
     PropTypes.shape({
       name: PropTypes.string.isRequired,
@@ -522,8 +584,13 @@ CRMManager.propTypes = {
       placeholder: PropTypes.string,
       min: PropTypes.number,
       options: PropTypes.arrayOf(PropTypes.string),
+      searchEndpoint: PropTypes.string,
+      optionLabel: PropTypes.string,
+      optionValue: PropTypes.string,
+      optionValues: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
     })
   ),
+  title: PropTypes.string,
   initialData: PropTypes.object,
   isEditing: PropTypes.bool,
   showRepeatableFields: PropTypes.bool,
@@ -531,10 +598,11 @@ CRMManager.propTypes = {
   onNext: PropTypes.func,
   totalSteps: PropTypes.number,
   children: PropTypes.node,
-  onInputChange: PropTypes.func,
-  onSingleInputChange: PropTypes.func,
-  formData: PropTypes.object,
+  onInputChange: PropTypes.func.isRequired,
+  onSingleInputChange: PropTypes.func.isRequired,
+  formData: PropTypes.object.isRequired,
   onSubmit: PropTypes.func,
+  redirectPath: PropTypes.string,
 };
 
 export default CRMManager;
