@@ -3,8 +3,6 @@ import { useLocation, useNavigate, useParams, Link } from "react-router-dom";
 import apiClient from "../../../helpers/apiClient";
 import CRMManager from "../../../components/CRMManager";
 import ClientSelectionModal from "../../../components/ClientSelectionModal.jsx";
-import ExistingClientModal from "../../../components/ExistingClientModal";
-import ExistingClient from "../../../components/ExistingClient/ExistingClient.jsx";
 import { toast } from "react-toastify";
 
 const AddRFQ = () => {
@@ -13,7 +11,6 @@ const AddRFQ = () => {
   const { id } = useParams();
   const { rfqData = {}, isEditing = false } = location.state || {};
   const [showClientModal, setShowClientModal] = useState(!rfqData.company_name && !isEditing && !id);
-  const [showExistingClientModal, setShowExistingClientModal] = useState(false);
   const [rfqChannels, setRfqChannels] = useState([]);
   const [items, setItems] = useState([]);
   const [products, setProducts] = useState([]);
@@ -154,7 +151,7 @@ const AddRFQ = () => {
   const handleClientSelect = (type) => {
     setShowClientModal(false);
     if (type === "existing") {
-      setShowExistingClientModal(true);
+      navigate('/pre-job/existing-client');
     }
   };
 
@@ -314,10 +311,6 @@ const AddRFQ = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  if (location.pathname === "/pre-job/existing-client") {
-    return <ExistingClient />;
-  }
-
   if (loading || itemsLoading || productsLoading || unitsLoading || teamMembersLoading) return <p>Loading data...</p>;
   if (error) return <p className="text-red-600">{error}</p>;
 
@@ -328,13 +321,6 @@ const AddRFQ = () => {
           <ClientSelectionModal
             onClose={() => setShowClientModal(false)}
             onSelect={handleClientSelect}
-          />
-        </div>
-      )}
-      {showExistingClientModal && (
-        <div className="fixed inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50">
-          <ExistingClientModal
-            onClose={() => setShowExistingClientModal(false)}
           />
         </div>
       )}
@@ -387,12 +373,12 @@ const AddRFQ = () => {
 
           try {
             if (isEditing && initialRfqData?.id) {
-              await apiClient.put(`${apiBaseUrl}${initialRfqData.id}/`, combinedData);
+              await apiClient.put(`/add-rfqs/${initialRfqData.id}/`, combinedData);
               toast.success("RFQ updated successfully!");
             } else {
-              const response = await apiClient.post(apiBaseUrl, combinedData);
+              const response = await apiClient.post('/add-rfqs/', combinedData);
               toast.success("RFQ saved successfully!");
-              console.log("RFQ saved response:", response.data); // Debug response
+              console.log("RFQ saved response:", response.data);
             }
             navigate("/pre-job/view-rfq");
           } catch (error) {
