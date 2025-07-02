@@ -23,19 +23,22 @@ const CRMManager = ({
   onSubmit,
 }) => {
   const navigate = useNavigate();
-  const [formEntries, setFormEntries] = useState(initialData?.items && Array.isArray(initialData?.items)
-    ? initialData.items.map((item, index) => ({
-        id: Date.now() + index,
-        data: {
-          item_name: item.item_name || "",
-          product_name: item.product_name || "",
-          quantity: item.quantity || "",
-          unit: item.unit || "",
-        },
-      }))
-    : [{ id: Date.now(), data: {} }]);
+  const [formEntries, setFormEntries] = useState(
+    initialData?.items && Array.isArray(initialData?.items)
+      ? initialData.items.map((item, index) => ({
+          id: Date.now() + index,
+          data: {
+            item_name: item.item_name || "",
+            product_name: item.product_name || "",
+            quantity: item.quantity || "",
+            unit: item.unit || "",
+          },
+        }))
+      : [{ id: Date.now(), data: {} }]
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dropdownOptions, setDropdownOptions] = useState({});
+  const [activeDropdown, setActiveDropdown] = useState(null); // Track active dropdown
 
   useEffect(() => {
     const fetchDropdownOptions = async () => {
@@ -45,10 +48,12 @@ const CRMManager = ({
           try {
             console.log(`Fetching options for ${field.name} from ${field.searchEndpoint}`);
             const response = await apiClient.get(field.searchEndpoint);
-            options[field.name] = response.data.map(item => ({
-              label: item[field.optionLabel] || item.name,
-              value: item[field.optionValue] || item.name,
-            })).sort((a, b) => a.label.localeCompare(b.label));
+            options[field.name] = response.data
+              .map((item) => ({
+                label: item[field.optionLabel] || item.name,
+                value: item[field.optionValue] || item.name,
+              }))
+              .sort((a, b) => a.label.localeCompare(b.label));
           } catch (err) {
             console.error(`Failed to fetch options for ${field.name}:`, err);
           }
@@ -60,6 +65,17 @@ const CRMManager = ({
     };
     if (currentStep === 2 && fields.length > 0) fetchDropdownOptions();
   }, [fields, currentStep]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest(".dropdown-container")) {
+        setActiveDropdown(null);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
 
   const validateEntry = (entry) => {
     for (const field of fields) {
@@ -92,7 +108,12 @@ const CRMManager = ({
   };
 
   const addFormBlock = () => {
-    setFormEntries((prev) => [...prev, { id: Date.now(), data: {} }]);
+    const newId = Date.now();
+    setFormEntries((prev) => [...prev, { id: newId, data: {} }]);
+    setFormData((prev) => ({
+      ...prev,
+      items: [...prev.items, { id: newId, item_name: "", product_name: "", quantity: "", unit: "" }],
+    }));
   };
 
   const removeFormBlock = (entryId) => {
@@ -101,11 +122,15 @@ const CRMManager = ({
       return;
     }
     setFormEntries((prev) => prev.filter((entry) => entry.id !== entryId));
+    setFormData((prev) => ({
+      ...prev,
+      items: prev.items.filter((item) => item.id !== entryId),
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("HandleSubmit triggered"); // Debug log
+    console.log("HandleSubmit triggered");
     setIsSubmitting(true);
 
     const singleValidationError = validateSingleFields();
@@ -127,9 +152,11 @@ const CRMManager = ({
     }
 
     const itemsData = showRepeatableFields
-      ? formEntries.map((entry) => ({
-          ...entry.data,
-        })).filter((data) => Object.keys(data).length > 0)
+      ? formEntries
+          .map((entry) => ({
+            ...entry.data,
+          }))
+          .filter((data) => Object.keys(data).length > 0)
       : [];
 
     if (showRepeatableFields && itemsData.length === 0) {
@@ -168,13 +195,16 @@ const CRMManager = ({
     const options = dropdownOptions[field.name] || field.options || [];
 
     if (field.type === "select" && field.searchEndpoint) {
-      const filteredOptions = options.filter(option =>
-        option.label.toLowerCase().includes(value.toLowerCase())
-      ).sort((a, b) => a.label.localeCompare(b.label));
+      const filteredOptions = options
+        .filter((option) => option.label.toLowerCase().includes(value.toLowerCase()))
+        .sort((a, b) => a.label.localeCompare(b.label));
 
       return (
-        <div key={field.name} className="mb-4 relative">
-          <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-gray-800 mb-1">
+        <div key={field.name} className="mb-4 relative dropdown-container">
+          <label
+            htmlFor={`${field.name}-${entryId}`}
+            className="block text-xs font-medium text-gray-800 mb-1"
+          >
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
@@ -182,18 +212,27 @@ const CRMManager = ({
             id={`${field.name}-${entryId}`}
             name={field.name}
             value={value}
-            onChange={(e) => onInputChange(e, entryId)}
+            onChange={(e) => {
+              console.log("Input event:", e.target.name, e.target.value, entryId);
+              onInputChange(e, entryId);
+              setActiveDropdown(`${field.name}-${entryId}`);
+            }}
+            onFocus={() => setActiveDropdown(`${field.name}-${entryId}`)}
             placeholder={field.placeholder}
+            disabled={false}
             className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           />
-          {value && filteredOptions.length > 0 && (
-            <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
+          {activeDropdown === `${field.name}-${entryId}` && value && filteredOptions.length > 0 && (
+            <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
               {filteredOptions.map((option) => (
                 <li
                   key={option.value}
                   className="p-2 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => onInputChange({ target: { name: field.name, value: option.value } }, entryId)}
+                  onClick={() => {
+                    onInputChange({ target: { name: field.name, value: option.value } }, entryId);
+                    setActiveDropdown(null);
+                  }}
                 >
                   {option.label}
                 </li>
@@ -206,21 +245,27 @@ const CRMManager = ({
     if (field.type === "select" && !field.searchEndpoint) {
       return (
         <div key={field.name} className="mb-4">
-          <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-gray-800 mb-1">
+          <label
+            htmlFor={`${field.name}-${entryId}`}
+            className="block text-xs font-medium text-gray-800 mb-1"
+          >
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <select
             id={`${field.name}-${entryId}`}
             name={field.name}
-            value={value || ""} // Ensure value is defined
+            value={value || ""}
             onChange={(e) => {
-              console.log("Select change:", { name: field.name, value: e.target.value, entryId }); // Debug log
+              console.log("Select change:", { name: field.name, value: e.target.value, entryId });
               onInputChange(e, entryId);
             }}
+            disabled={false}
             className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           >
-            <option value="" disabled>{field.placeholder}</option>
+            <option value="" disabled>
+              {field.placeholder}
+            </option>
             {options.map((option, index) => (
               <option
                 key={index}
@@ -236,7 +281,10 @@ const CRMManager = ({
     if (field.type === "textarea") {
       return (
         <div key={field.name} className="mb-4">
-          <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-gray-800 mb-1">
+          <label
+            htmlFor={`${field.name}-${entryId}`}
+            className="block text-xs font-medium text-gray-800 mb-1"
+          >
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <textarea
@@ -245,6 +293,7 @@ const CRMManager = ({
             value={value}
             onChange={(e) => onInputChange(e, entryId)}
             placeholder={field.placeholder}
+            disabled={false}
             className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           />
@@ -253,17 +302,24 @@ const CRMManager = ({
     }
     return (
       <div key={field.name} className="mb-4">
-        <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-gray-800 mb-1">
+        <label
+          htmlFor={`${field.name}-${entryId}`}
+          className="block text-xs font-medium text-gray-800 mb-1"
+        >
           {field.label} {field.required && <span className="text-red-500">*</span>}
         </label>
         <input
           id={`${field.name}-${entryId}`}
           type={field.type}
           name={field.name}
-          value={value || ""} // Ensure value is defined
-          onChange={(e) => onInputChange(e, entryId)}
+          value={value || ""}
+          onChange={(e) => {
+            console.log("Input event:", e.target.name, e.target.value, entryId);
+            onInputChange(e, entryId);
+          }}
           placeholder={field.placeholder}
           min={field.min}
+          disabled={false}
           className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
           aria-required={field.required}
         />
@@ -276,7 +332,10 @@ const CRMManager = ({
     if (field.type === "select") {
       return (
         <div key={field.name} className="mb-4">
-          <label htmlFor={field.name} className="block text-xs font-medium text-gray-800 mb-1">
+          <label
+            htmlFor={field.name}
+            className="block text-xs font-medium text-gray-800 mb-1"
+          >
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <select
@@ -284,10 +343,13 @@ const CRMManager = ({
             name={field.name}
             value={value}
             onChange={onSingleInputChange}
+            disabled={false}
             className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           >
-            <option value="" disabled>{field.placeholder}</option>
+            <option value="" disabled>
+              {field.placeholder}
+            </option>
             {field.options.map((option, index) => (
               <option
                 key={option}
@@ -303,7 +365,10 @@ const CRMManager = ({
     if (field.type === "textarea") {
       return (
         <div key={field.name} className="mb-4">
-          <label htmlFor={field.name} className="block text-xs font-medium text-gray-800 mb-1">
+          <label
+            htmlFor={field.name}
+            className="block text-xs font-medium text-gray-800 mb-1"
+          >
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <textarea
@@ -312,6 +377,7 @@ const CRMManager = ({
             value={value}
             onChange={onSingleInputChange}
             placeholder={field.placeholder}
+            disabled={false}
             className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           />
@@ -320,7 +386,10 @@ const CRMManager = ({
     }
     return (
       <div key={field.name} className="mb-4">
-        <label htmlFor={field.name} className="block text-xs font-medium text-gray-800 mb-1">
+        <label
+          htmlFor={field.name}
+          className="block text-xs font-medium text-gray-800 mb-1"
+        >
           {field.label} {field.required && <span className="text-red-500">*</span>}
         </label>
         <input
@@ -331,6 +400,7 @@ const CRMManager = ({
           onChange={onSingleInputChange}
           placeholder={field.placeholder}
           min={field.min}
+          disabled={false}
           className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
           aria-required={field.required}
         />
@@ -340,6 +410,19 @@ const CRMManager = ({
 
   return (
     <div className="mx-auto p-4 bg-white rounded-lg shadow-md">
+      <style>
+        {`
+          .dropdown-container {
+            position: relative;
+          }
+          input, select, textarea {
+            pointer-events: auto !important;
+          }
+          ul {
+            z-index: 20;
+          }
+        `}
+      </style>
       {title && <h2 className="text-lg font-medium mb-6 text-gray-800">{title}</h2>}
       <form onSubmit={onSubmit || handleSubmit} className="mb-6">
         {currentStep === 1 &&
@@ -354,7 +437,10 @@ const CRMManager = ({
             {showRepeatableFields && (
               <>
                 {formEntries.map((entry) => (
-                  <div key={entry.id} className="mb-4 p-4 bg-gray-100 rounded grid grid-cols-3 gap-4">
+                  <div
+                    key={entry.id}
+                    className="mb-4 p-4 bg-gray-100 rounded grid grid-cols-3 gap-4"
+                  >
                     {fields.map((field) => renderField(field, entry.id))}
                     {formEntries.length > 1 && (
                       <div className="flex items-center justify-end col-span-3">

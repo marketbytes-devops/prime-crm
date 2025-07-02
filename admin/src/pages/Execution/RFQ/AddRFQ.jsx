@@ -4,7 +4,7 @@ import { Plus, Trash, ArrowRight } from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "../../../helpers/apiClient";
 import ClientSelectionModal from "../../../components/ClientSelectionModal.jsx";
- 
+
 const AddRFQ = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -43,7 +43,7 @@ const AddRFQ = () => {
     items: [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
- 
+
   useEffect(() => {
     const fetchRfqChannels = async () => {
       try {
@@ -56,7 +56,7 @@ const AddRFQ = () => {
         setRfqChannels([]);
       }
     };
- 
+
     const fetchItems = async () => {
       try {
         setItemsLoading(true);
@@ -70,7 +70,7 @@ const AddRFQ = () => {
         setItemsLoading(false);
       }
     };
- 
+
     const fetchProducts = async () => {
       try {
         setProductsLoading(true);
@@ -84,7 +84,7 @@ const AddRFQ = () => {
         setProductsLoading(false);
       }
     };
- 
+
     const fetchUnits = async () => {
       try {
         setUnitsLoading(true);
@@ -98,7 +98,7 @@ const AddRFQ = () => {
         setUnitsLoading(false);
       }
     };
- 
+
     const fetchTeamMembers = async () => {
       try {
         setTeamMembersLoading(true);
@@ -121,7 +121,7 @@ const AddRFQ = () => {
         setTeamMembersLoading(false);
       }
     };
- 
+
     const fetchRfqData = async () => {
       if (id) {
         try {
@@ -148,7 +148,7 @@ const AddRFQ = () => {
         }
       }
     };
- 
+
     Promise.all([
       fetchRfqChannels(),
       fetchItems(),
@@ -160,14 +160,14 @@ const AddRFQ = () => {
       setLoading(false);
     });
   }, [id]);
- 
+
   const handleClientSelect = (type) => {
     setShowClientModal(false);
     if (type === "existing") {
       navigate("/pre-job/existing-client");
     }
   };
- 
+
   const handleInputChange = (e, entryId) => {
     const { name, value } = e.target;
     setFormData((prev) => {
@@ -177,12 +177,12 @@ const AddRFQ = () => {
       return { ...prev, items: newItems };
     });
   };
- 
+
   const handleSingleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
- 
+
   const addFormBlock = () => {
     const newId = Date.now();
     setFormData((prev) => ({
@@ -190,7 +190,7 @@ const AddRFQ = () => {
       items: [...prev.items, { id: newId, item_name: "", product_name: "", quantity: "", unit: "" }],
     }));
   };
- 
+
   const removeFormBlock = (entryId) => {
     if (formData.items.length === 1) {
       toast.error("At least one entry is required");
@@ -201,7 +201,7 @@ const AddRFQ = () => {
       items: prev.items.filter((item) => item.id !== entryId),
     }));
   };
- 
+
   const validateSingleFields = () => {
     const fields = [
       { name: "company_name", label: "Company Name", required: true },
@@ -216,7 +216,7 @@ const AddRFQ = () => {
     }
     return null;
   };
- 
+
   const validateEntry = (entry) => {
     if (includeItems && !entry.item_name) {
       return "Item is required";
@@ -235,18 +235,18 @@ const AddRFQ = () => {
     }
     return null;
   };
- 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
- 
+
     const singleValidationError = validateSingleFields();
     if (singleValidationError) {
       toast.error(singleValidationError);
       setIsSubmitting(false);
       return;
     }
- 
+
     for (const entry of formData.items) {
       const validationError = validateEntry(entry);
       if (validationError) {
@@ -255,13 +255,13 @@ const AddRFQ = () => {
         return;
       }
     }
- 
+
     if (formData.items.length === 0) {
       toast.error("Please add at least one item or product.");
       setIsSubmitting(false);
       return;
     }
- 
+
     const combinedData = {
       ...formData,
       assign_to: formData.assign_to ? parseInt(formData.assign_to) : null,
@@ -272,7 +272,7 @@ const AddRFQ = () => {
         unit: item.unit || "",
       })),
     };
- 
+
     try {
       if (isEditing && initialRfqData?.id) {
         await apiClient.put(`/add-rfqs/${initialRfqData.id}/`, combinedData);
@@ -292,7 +292,7 @@ const AddRFQ = () => {
       setIsSubmitting(false);
     }
   };
- 
+
   const companyFields = [
     {
       name: "company_name",
@@ -338,7 +338,7 @@ const AddRFQ = () => {
       placeholder: "Select RFQ Channel",
     },
   ];
- 
+
   const attentionFields = [
     {
       name: "attention_name",
@@ -362,7 +362,7 @@ const AddRFQ = () => {
       placeholder: "Enter Attention Email",
     },
   ];
- 
+
   const stepTwoFields = [
     {
       name: "due_date",
@@ -381,7 +381,7 @@ const AddRFQ = () => {
       optionValues: teamMembers.map((member) => member.value),
     },
   ];
- 
+
   const renderSingleField = (field) => {
     const value = formData[field.name] || "";
     if (field.type === "select") {
@@ -439,7 +439,7 @@ const AddRFQ = () => {
       </div>
     );
   };
- 
+
   const renderEntryField = (field, entryId) => {
     const entry = formData.items.find((e) => e.id === entryId);
     const value = entry[field.name] || "";
@@ -499,15 +499,14 @@ const AddRFQ = () => {
       </div>
     );
   };
- 
+
   if (loading || itemsLoading || productsLoading || unitsLoading || teamMembersLoading) {
     return <p>Loading data...</p>;
   }
   if (error) {
     return <p className="text-red-600">{error}</p>;
- 
   }
- 
+
   return (
     <div className="container mx-auto p-4 bg-blue-50 min-h-screen">
       {showClientModal && (
@@ -699,6 +698,5 @@ const AddRFQ = () => {
     </div>
   );
 };
- 
+
 export default AddRFQ;
- 
