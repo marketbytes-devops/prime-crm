@@ -3,17 +3,14 @@ import { useLocation, useNavigate, useParams, Link } from "react-router-dom";
 import apiClient from "../../../helpers/apiClient";
 import CRMManager from "../../../components/CRMManager";
 import ClientSelectionModal from "../../../components/ClientSelectionModal.jsx";
-import ExistingClientModal from "../../../components/ExistingClientModal";
-import ExistingClient from "../../../components/ExistingClient/ExistingClient.jsx";
 import { toast } from "react-toastify";
-
+ 
 const AddRFQ = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { id } = useParams();
   const { rfqData = {}, isEditing = false } = location.state || {};
   const [showClientModal, setShowClientModal] = useState(!rfqData.company_name && !isEditing && !id);
-  const [showExistingClientModal, setShowExistingClientModal] = useState(false);
   const [rfqChannels, setRfqChannels] = useState([]);
   const [items, setItems] = useState([]);
   const [products, setProducts] = useState([]);
@@ -30,7 +27,7 @@ const AddRFQ = () => {
   const [includeItems, setIncludeItems] = useState(false);
   const [includeProducts, setIncludeProducts] = useState(false);
   const [formData, setFormData] = useState({ items: [] });
-
+ 
   useEffect(() => {
     const fetchRfqChannels = async () => {
       try {
@@ -43,7 +40,7 @@ const AddRFQ = () => {
         setRfqChannels([]);
       }
     };
-
+ 
     const fetchItems = async () => {
       try {
         setItemsLoading(true);
@@ -57,7 +54,7 @@ const AddRFQ = () => {
         setItemsLoading(false);
       }
     };
-
+ 
     const fetchProducts = async () => {
       try {
         setProductsLoading(true);
@@ -71,7 +68,7 @@ const AddRFQ = () => {
         setProductsLoading(false);
       }
     };
-
+ 
     const fetchUnits = async () => {
       try {
         setUnitsLoading(true);
@@ -85,7 +82,7 @@ const AddRFQ = () => {
         setUnitsLoading(false);
       }
     };
-
+ 
     const fetchTeamMembers = async () => {
       try {
         setTeamMembersLoading(true);
@@ -106,7 +103,7 @@ const AddRFQ = () => {
         setTeamMembersLoading(false);
       }
     };
-
+ 
     const fetchRfqData = async () => {
       if (id) {
         try {
@@ -138,7 +135,7 @@ const AddRFQ = () => {
         }
       }
     };
-
+ 
     Promise.all([
       fetchRfqChannels(),
       fetchItems(),
@@ -150,14 +147,14 @@ const AddRFQ = () => {
       setLoading(false);
     });
   }, [id]);
-
+ 
   const handleClientSelect = (type) => {
     setShowClientModal(false);
     if (type === "existing") {
-      setShowExistingClientModal(true);
+      navigate('/pre-job/existing-client');
     }
   };
-
+ 
   const companyFields = [
     {
       name: "company_name",
@@ -203,7 +200,7 @@ const AddRFQ = () => {
       placeholder: "Select RFQ Channel",
     },
   ];
-
+ 
   const attentionFields = [
     {
       name: "attention_name",
@@ -227,7 +224,7 @@ const AddRFQ = () => {
       placeholder: "Enter Attention Email",
     },
   ];
-
+ 
   const stepTwoFields = [
     {
       name: "due_date",
@@ -246,7 +243,7 @@ const AddRFQ = () => {
       optionValues: teamMembersLoading ? [] : teamMembers.map(member => member.value),
     },
   ];
-
+ 
   const baseFields = [
     {
       name: "quantity",
@@ -265,7 +262,7 @@ const AddRFQ = () => {
       options: unitsLoading ? [] : units,
     },
   ];
-
+ 
   const itemFields = includeItems
     ? [
         {
@@ -279,7 +276,7 @@ const AddRFQ = () => {
         ...baseFields,
       ]
     : [];
-
+ 
   const productFields = includeProducts
     ? [
         {
@@ -293,9 +290,9 @@ const AddRFQ = () => {
         ...baseFields,
       ]
     : [];
-
+ 
   const currentFields = [...itemFields, ...productFields];
-
+ 
   const handleInputChange = (e, entryId) => {
     const { name, value } = e.target;
     setFormData((prev) => {
@@ -308,19 +305,15 @@ const AddRFQ = () => {
       return { ...prev, items: newItems };
     });
   };
-
+ 
   const handleSingleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
-
-  if (location.pathname === "/pre-job/existing-client") {
-    return <ExistingClient />;
-  }
-
+ 
   if (loading || itemsLoading || productsLoading || unitsLoading || teamMembersLoading) return <p>Loading data...</p>;
   if (error) return <p className="text-red-600">{error}</p>;
-
+ 
   return (
     <div className="container mx-auto p-4 bg-blue-50 min-h-screen">
       {showClientModal && (
@@ -328,13 +321,6 @@ const AddRFQ = () => {
           <ClientSelectionModal
             onClose={() => setShowClientModal(false)}
             onSelect={handleClientSelect}
-          />
-        </div>
-      )}
-      {showExistingClientModal && (
-        <div className="fixed inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50">
-          <ExistingClientModal
-            onClose={() => setShowExistingClientModal(false)}
           />
         </div>
       )}
@@ -384,15 +370,15 @@ const AddRFQ = () => {
               unit: item.unit || "",
             })),
           };
-
+ 
           try {
             if (isEditing && initialRfqData?.id) {
-              await apiClient.put(`${apiBaseUrl}${initialRfqData.id}/`, combinedData);
+              await apiClient.put(`/add-rfqs/${initialRfqData.id}/`, combinedData);
               toast.success("RFQ updated successfully!");
             } else {
-              const response = await apiClient.post(apiBaseUrl, combinedData);
+              const response = await apiClient.post('/add-rfqs/', combinedData);
               toast.success("RFQ saved successfully!");
-              console.log("RFQ saved response:", response.data); // Debug response
+              console.log("RFQ saved response:", response.data);
             }
             navigate("/pre-job/view-rfq");
           } catch (error) {
@@ -433,7 +419,7 @@ const AddRFQ = () => {
         {currentStep === 2 && initialRfqData?.assign_to && teamMembers.length > 0 && (
           <div className="mb-4">
             <p className="text-sm font-medium text-gray-800">
-              Assigned To: {teamMembers.find(member => member.value === parseInt(initialRfqData.assign_to))?.label} 
+              Assigned To: {teamMembers.find(member => member.value === parseInt(initialRfqData.assign_to))?.label}
               (Email: {teamMembers.find(member => member.value === parseInt(initialRfqData.assign_to))?.email || 'Not available'})
             </p>
           </div>
@@ -442,5 +428,5 @@ const AddRFQ = () => {
     </div>
   );
 };
-
+ 
 export default AddRFQ;
