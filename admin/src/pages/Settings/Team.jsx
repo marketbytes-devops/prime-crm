@@ -1,15 +1,15 @@
-// src/pages/Teams/Team.jsx
 import { useState, useEffect } from 'react';
 import apiClient from '../../helpers/apiClient';
 
 const Team = () => {
   const [name, setName] = useState('');
   const [designation, setDesignation] = useState('');
+  const [email, setEmail] = useState(''); // New state for email
   const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [searchTerm, setSearchTerm] = useState(''); // State for search functionality
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchTeamMembers = async () => {
@@ -39,10 +39,16 @@ const Team = () => {
     setSuccess(null);
   };
 
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
+    setError(null);
+    setSuccess(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name.trim() || !designation.trim()) {
-      setError('Name and designation cannot be empty.');
+    if (!name.trim() || !designation.trim() || !email.trim()) {
+      setError('Name, designation, and email cannot be empty.');
       return;
     }
     setLoading(true);
@@ -50,14 +56,16 @@ const Team = () => {
       const response = await apiClient.post('teams/', {
         name: name.trim(),
         designation: designation.trim(),
+        email: email.trim(),
       });
       setTeamMembers([...teamMembers, response.data]);
       setName('');
       setDesignation('');
+      setEmail(''); // Reset email input
       setSuccess('Team member added successfully!');
     } catch (err) {
       console.error('Failed to add team member:', err);
-      setError(err.response?.data?.name?.[0] || err.response?.data?.designation?.[0] || 'Failed to add team member.');
+      setError(err.response?.data?.name?.[0] || err.response?.data?.designation?.[0] || err.response?.data?.email?.[0] || 'Failed to add team member.');
     } finally {
       setLoading(false);
     }
@@ -77,10 +85,11 @@ const Team = () => {
     }
   };
 
-  // Filter team members based on search term (name or designation)
+  // Filter team members based on search term (name, designation, or email)
   const filteredMembers = teamMembers.filter((member) =>
     member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    member.designation.toLowerCase().includes(searchTerm.toLowerCase())
+    member.designation.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    member.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -93,7 +102,7 @@ const Team = () => {
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search by name or designation..."
+          placeholder="Search by name, designation, or email..."
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00334d] text-sm"
           disabled={loading}
         />
@@ -129,6 +138,20 @@ const Team = () => {
             disabled={loading}
           />
         </div>
+        <div className="mb-4">
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            Email
+          </label>
+          <input
+            type="email"
+            id="email"
+            value={email}
+            onChange={handleEmailChange}
+            placeholder="e.g., john.doe@example.com"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00334d] text-sm"
+            disabled={loading}
+          />
+        </div>
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         {success && <p className="mt-2 text-sm text-green-600">{success}</p>}
         <button
@@ -157,7 +180,7 @@ const Team = () => {
                 className="flex justify-between items-center text-sm text-gray-800 border-b border-gray-200 py-2"
               >
                 <span>
-                  {member.name} - {member.designation}
+                  {member.name} - {member.designation} ({member.email})
                 </span>
                 <button
                   onClick={() => handleDelete(member.id)}
