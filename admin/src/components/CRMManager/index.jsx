@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
 import { Plus, Trash, ArrowRight } from "lucide-react";
 import { toast } from "react-toastify";
@@ -52,6 +52,8 @@ const CRMManager = ({
           } catch (err) {
             console.error(`Failed to fetch options for ${field.name}:`, err);
           }
+        } else {
+          options[field.name] = field.options || [];
         }
       }
       setDropdownOptions(options);
@@ -103,6 +105,7 @@ const CRMManager = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("HandleSubmit triggered"); // Debug log
     setIsSubmitting(true);
 
     const singleValidationError = validateSingleFields();
@@ -209,15 +212,18 @@ const CRMManager = ({
           <select
             id={`${field.name}-${entryId}`}
             name={field.name}
-            value={value}
-            onChange={(e) => onInputChange(e, entryId)}
+            value={value || ""} // Ensure value is defined
+            onChange={(e) => {
+              console.log("Select change:", { name: field.name, value: e.target.value, entryId }); // Debug log
+              onInputChange(e, entryId);
+            }}
             className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           >
             <option value="" disabled>{field.placeholder}</option>
             {options.map((option, index) => (
               <option
-                key={option}
+                key={index}
                 value={field.optionValues ? field.optionValues[index] : option}
               >
                 {option}
@@ -254,7 +260,7 @@ const CRMManager = ({
           id={`${field.name}-${entryId}`}
           type={field.type}
           name={field.name}
-          value={value}
+          value={value || ""} // Ensure value is defined
           onChange={(e) => onInputChange(e, entryId)}
           placeholder={field.placeholder}
           min={field.min}
