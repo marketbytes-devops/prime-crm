@@ -7,33 +7,34 @@ import { toast } from "react-toastify";
 const ViewRFQ = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [rfqData, setRfqData] = useState([]);
+  const [rfqData, setRfqData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedRfq, setSelectedRfq] = useState(null);
 
   useEffect(() => {
     const fetchRfqData = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get("/add-rfqs/");
-        const data = response.data.map((rfq, index) => ({
-          ...rfq,
-          si_no: index + 1, // Auto-generate SI No
-          rfq_no: `RFQ-${String(rfq.id).padStart(3, '0')}`, // Generate RFQ No with padStart
-          current_status: rfq.due_date && new Date(rfq.due_date) < new Date() ? "Completed" : "Processing", // Computed status
-        }));
+        const response = await apiClient.get(`/add-rfqs/${id}/`);
+        const data = {
+          ...response.data,
+          si_no: 1, // Single RFQ, so SI No is 1
+          rfq_no: `RFQ-${String(response.data.id).padStart(3, '0')}`,
+          current_status: response.data.due_date && new Date(response.data.due_date) < new Date()
+            ? "Completed"
+            : "Processing",
+          items: response.data.items || [], // Ensure items array is present
+        };
         setRfqData(data);
       } catch (err) {
         console.error("Failed to fetch RFQ data:", err);
-        setError("Failed to load RFQs.");
-        setRfqData([]);
+        setError("Failed to load RFQ.");
       } finally {
         setLoading(false);
       }
     };
-    fetchRfqData();
-  }, []);
+    if (id) fetchRfqData();
+  }, [id]);
 
   const tableFields = [
     { name: "si_no", label: "SI No" },
@@ -70,10 +71,11 @@ const ViewRFQ = () => {
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p className="text-red-600">{error}</p>;
+  if (!rfqData) return <p>No RFQ data available.</p>;
 
   return (
     <div className="container mx-auto p-4">
-      <h2 className="text-lg font-medium mb-6 text-gray-800">View RFQs</h2>
+      <h2 className="text-lg font-medium mb-6 text-gray-800">View RFQ</h2>
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow-md">
           <thead>
@@ -87,66 +89,68 @@ const ViewRFQ = () => {
             </tr>
           </thead>
           <tbody>
-            {rfqData.map((rfq) => (
-              <tr key={rfq.id} className="border-t">
-                {tableFields.map((field) => (
-                  <td key={field.name} className="px-4 py-2 text-sm text-gray-800">
-                    {field.type === "date"
-                      ? rfq[field.name] ? new Date(rfq[field.name]).toLocaleDateString() : "N/A"
-                      : rfq[field.name] || "N/A"}
-                  </td>
-                ))}
-                <td className="px-4 py-2 text-sm text-gray-800">
-                  <button
-                    onClick={() => setSelectedRfq(rfq)}
-                    className="bg-indigo-500 text-white px-3 py-1 text-sm rounded hover:bg-indigo-600"
-                  >
-                    View Details
-                  </button>
+            <tr className="border-t">
+              {tableFields.map((field) => (
+                <td key={field.name} className="px-4 py-2 text-sm text-gray-800">
+                  {field.type === "date"
+                    ? rfqData[field.name] ? new Date(rfqData[field.name]).toLocaleDateString() : "N/A"
+                    : rfqData[field.name] || "N/A"}
                 </td>
-              </tr>
-            ))}
+              ))}
+              <td className="px-4 py-2 text-sm text-gray-800">
+                <button
+                  onClick={() => {
+                    setRfqData((prev) => ({ ...prev, isModalOpen: true }));
+                  }}
+                  className="bg-indigo-500 text-white px-3 py-1 text-sm rounded hover:bg-indigo-600"
+                >
+                  View Details
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
 
-      {selectedRfq && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
-            <h3 className="text-lg font-medium mb-4 text-gray-800">RFQ Details #{selectedRfq.rfq_no}</h3>
+      {rfqData?.isModalOpen && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 transition-opacity duration-300">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md transform transition-all duration-300 scale-100 hover:scale-105">
+            <h3 className="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">
+              RFQ Details #{rfqData.rfq_no}
+            </h3>
             <ViewCard
               apiBaseUrl="/add-rfqs/"
               singleFields={allSingleFields}
               repeatableFields={repeatableFields}
               title=""
-              editPath={`/pre-job/add-rfq?id=${selectedRfq.id}`}
+              editPath={`/pre-job/add-rfq?id=${rfqData.id}`}
               showRepeatableFields={true}
-              initialData={selectedRfq}
+              initialData={rfqData}
             />
-            <div className="mt-4 flex justify-end space-x-2">
+            <div className="mt-6 flex justify-end space-x-3">
               <button
-                onClick={() => navigate(`/pre-job/add-rfq?id=${selectedRfq.id}`, { state: { rfqData: selectedRfq, isEditing: true } })}
-                className="bg-blue-500 text-white px-4 py-2 text-sm rounded hover:bg-blue-600"
+                onClick={() => navigate(`/pre-job/add-rfq?id=${rfqData.id}`, { state: { rfqData, isEditing: true } })}
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200"
               >
                 Edit
               </button>
               <button
                 onClick={() => {
                   if (window.confirm("Are you sure you want to delete this RFQ?")) {
-                    apiClient.delete(`${"/add-rfqs/"}${selectedRfq.id}/`).then(() => {
-                      setRfqData(rfqData.filter(r => r.id !== selectedRfq.id));
-                      setSelectedRfq(null);
+                    apiClient.delete(`${"/add-rfqs/"}${rfqData.id}/`).then(() => {
+                      setRfqData(null);
                       toast.success("RFQ deleted successfully");
+                      navigate("/pre-job/view-rfq");
                     }).catch(() => toast.error("Failed to delete RFQ"));
                   }
                 }}
-                className="bg-red-500 text-white px-4 py-2 text-sm rounded hover:bg-red-600"
+                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors duration-200"
               >
                 Delete
               </button>
               <button
-                onClick={() => setSelectedRfq(null)}
-                className="bg-gray-500 text-white px-4 py-2 text-sm rounded hover:bg-gray-600"
+                onClick={() => setRfqData((prev) => ({ ...prev, isModalOpen: false }))}
+                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200"
               >
                 Close
               </button>
