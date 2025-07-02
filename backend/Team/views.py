@@ -7,4 +7,4 @@ from .serializers import TeamMemberSerializer
 class TeamMemberViewSet(viewsets.ModelViewSet):
     queryset = TeamMember.objects.all()
     serializer_class = TeamMemberSerializer
-    permission_classes = [AllowAny]  # Allow any user for simplicity; adjust as needed
+    permission_classes = [AllowAny]  
