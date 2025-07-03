@@ -327,7 +327,7 @@ const AddRFQ = () => {
                     type="checkbox"
                     checked={includeItems}
                     onChange={(e) => setIncludeItems(e.target.checked)}
-                    className="mr-2"
+                    className="mr-2 relative top-0.5"
                   />
                   <span className="text-black text-sm">Include Items</span>
                 </label>
@@ -336,7 +336,7 @@ const AddRFQ = () => {
                     type="checkbox"
                     checked={includeProducts}
                     onChange={(e) => setIncludeProducts(e.target.checked)}
-                    className="mr-2"
+                    className="mr-2 relative top-0.5"
                   />
                   <span className="text-black text-sm">Include Products</span>
                 </label>
