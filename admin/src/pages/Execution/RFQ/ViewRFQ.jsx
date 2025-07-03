@@ -23,8 +23,7 @@ const ViewRFQ = () => {
         ...rfq,
         si_no: index + 1,
         rfq_no: `RFQ-${String(rfq.id).padStart(3, "0")}`,
-        current_status:
-          rfq.due_date && new Date(rfq.due_date) < new Date() ? "Completed" : "Processing",
+        current_status: rfq.current_status || (rfq.due_date && new Date(rfq.due_date) < new Date() ? "Completed" : "Processing"),
       }));
       setRfqs(updatedRfqs);
       if (selectedRfq) {
@@ -106,6 +105,23 @@ const ViewRFQ = () => {
   const nextPage = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
   const prevPage = () => currentPage > 1 && setCurrentPage(currentPage - 1);
 
+  const updateStatus = async (rfqId, newStatus) => {
+    try {
+      const response = await apiClient.put(`/add-rfqs/${rfqId}/`, { current_status: newStatus });
+      const updatedRfq = response.data;
+      setRfqs((prev) =>
+        prev.map((rfq) => (rfq.id === rfqId ? { ...rfq, current_status: updatedRfq.current_status } : rfq))
+      );
+      if (selectedRfq && selectedRfq.id === rfqId) {
+        setSelectedRfq((prev) => ({ ...prev, current_status: updatedRfq.current_status }));
+      }
+      alert(`Status changed to ${newStatus}`);
+    } catch (err) {
+      console.error("Failed to update status:", err);
+      toast.error("Failed to update status. Please try again.");
+    }
+  };
+
   if (loading) return <p className="text-black text-center">Loading...</p>;
   if (error) return <p className="text-red-600 text-center">{error}</p>;
   if (rfqs.length === 0) return <p className="text-black text-center">No RFQs found.</p>;
@@ -122,7 +138,14 @@ const ViewRFQ = () => {
                   key={field.name}
                   className="px-4 py-2 text-sm font-medium text-black text-left"
                 >
-                  {field.label}
+                  {field.name === "current_status" ? (
+                    <div className="flex items-center">
+                      {field.label}
+                      <span className="ml-1 text-xs text-gray-500">(Editable)</span>
+                    </div>
+                  ) : (
+                    field.label
+                  )}
                 </th>
               ))}
               <th className="px-4 py-2 text-sm font-medium text-black text-left">
@@ -135,11 +158,22 @@ const ViewRFQ = () => {
               <tr key={rfq.id} className="border-t hover:bg-gray-50">
                 {tableFields.map((field) => (
                   <td key={field.name} className="px-4 py-3 text-sm text-black">
-                    {field.type === "date"
-                      ? rfq[field.name]
+                    {field.name === "current_status" ? (
+                      <select
+                        value={rfq.current_status || ""}
+                        onChange={(e) => updateStatus(rfq.id, e.target.value)}
+                        className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      >
+                        <option value="Processing">Processing</option>
+                        <option value="Completed">Completed</option>
+                      </select>
+                    ) : field.type === "date" ? (
+                      rfq[field.name]
                         ? new Date(rfq[field.name]).toLocaleDateString()
                         : "N/A"
-                      : rfq[field.name] || "N/A"}
+                    ) : (
+                      rfq[field.name] || "N/A"
+                    )}
                   </td>
                 ))}
                 <td className="px-4 py-3 text-sm text-black">
