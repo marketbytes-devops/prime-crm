@@ -246,7 +246,7 @@ const ViewRFQ = () => {
               </button>
               <button
                 onClick={() => handleDelete(selectedRfq.id)}
-                className="bg-black text-white px-3 py-2 rounded hover:bg-gray-800 transition-colors duration-200"
+                className="bg-red-500 text-white hover:bg-red-600 px-3 py-2 rounded transition-colors duration-200"
               >
                 Delete
               </button>

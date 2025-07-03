@@ -394,7 +394,7 @@ const AddRFQ = () => {
                           <button
                             type="button"
                             onClick={() => removeFormBlock(entry.id)}
-                            className="bg-black text-white px-3 py-2 text-sm rounded hover:bg-gray-800 transition-colors duration-200 flex items-center"
+                            className="bg-red-500 text-white hover:bg-red-600 px-3 py-2 text-sm rounded transition-colors duration-200 flex items-center"
                           >
                             <Trash size={16} className="mr-1" /> Remove
                           </button>
