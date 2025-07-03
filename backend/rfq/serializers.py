@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.core.mail import send_mail
+from django.conf import settings  
 from .models import RFQ, RFQChannel, Client, RFQItem
 from team.models import TeamMember
 
@@ -72,6 +73,28 @@ class RFQSerializer(serializers.ModelSerializer):
                 print(f"Email sent successfully to {assign_to.email} for RFQ #{rfq.id}")
             except Exception as e:
                 print(f"Failed to send email to {assign_to.email} for RFQ #{rfq.id}: {str(e)}")
+
+            admin_email = settings.ADMIN_EMAIL  
+            admin_subject = f'RFQ #{rfq.id} Assignment Notification'
+            admin_message = (
+                f'Hello Admin,\n\n'
+                f'{assign_to.name} (email: {assign_to.email}) is assigned to RFQ #{rfq.id} for {rfq.company_name}.\n'
+                f'Due Date: {rfq.due_date or "Not specified"}\n'
+                f'Regards,\nPrimeCRM Team'
+            )
+            try:
+                send_mail(
+                    subject=admin_subject,
+                    message=admin_message,
+                    from_email=None,
+                    recipient_list=[admin_email],
+                    fail_silently=True,
+                )
+                print(f"Email sent successfully to {admin_email} for RFQ #{rfq.id}")
+            except Exception as e:
+                print(f"Failed to send email to {admin_email} for RFQ #{rfq.id}: {str(e)}")
+                email_sent = False  
+                
         return email_sent
 
     def create(self, validated_data):

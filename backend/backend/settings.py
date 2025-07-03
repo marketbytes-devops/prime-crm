@@ -146,7 +146,6 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'your-email@gmail.com')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'your-email-password')
 
-# ASSIGNED_PERSON_EMAIL =  os.getenv('EMAIL_HOST_USER', 'your-email@gmail.com')
-# ASSIGNED_PERSON_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'your-email-password')
+ADMIN_EMAIL= os.getenv('ADMIN_EMAIL', 'your-email@gmail.com')
 
 AUTH_USER_MODEL = 'authapp.CustomUser'
