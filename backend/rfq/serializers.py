@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.core.mail import send_mail
-from django.conf import settings  
+from django.conf import settings
 from .models import RFQ, RFQChannel, Client, RFQItem
 from team.models import TeamMember
 
@@ -39,13 +39,13 @@ class RFQSerializer(serializers.ModelSerializer):
     class Meta:
         model = RFQ
         fields = [
-            'id', 'created_at',
-            'company_name', 'reference', 'address', 'phone', 'email',
+            'id', 'created_at', 'company_name', 'reference', 'address', 'phone', 'email',
             'rfq_channel', 'attention_name', 'attention_phone', 'attention_email',
-            'due_date', 'assign_to', 'assign_to_name', 'assign_to_designation', 'items'
+            'due_date', 'assign_to', 'assign_to_name', 'assign_to_designation', 'items',
+            'current_status' 
         ]
 
-    def validate_assign_to(self, value):  
+    def validate_assign_to(self, value):
         if value and not value.email:
             raise serializers.ValidationError("Selected team member must have a valid email address.")
         return value
@@ -58,6 +58,7 @@ class RFQSerializer(serializers.ModelSerializer):
                 f'Hello {assign_to.name},\n\n'
                 f'You have been assigned to RFQ #{rfq.id} for {rfq.company_name}.\n'
                 f'Due Date: {rfq.due_date or "Not specified"}\n'
+                f'Status: {rfq.current_status or "Processing"}\n'  
                 f'Please check the PrimeCRM dashboard for details.\n\n'
                 f'Regards,\nPrimeCRM Team'
             )
@@ -74,12 +75,13 @@ class RFQSerializer(serializers.ModelSerializer):
             except Exception as e:
                 print(f"Failed to send email to {assign_to.email} for RFQ #{rfq.id}: {str(e)}")
 
-            admin_email = settings.ADMIN_EMAIL  
+            admin_email = settings.ADMIN_EMAIL
             admin_subject = f'RFQ #{rfq.id} Assignment Notification'
             admin_message = (
                 f'Hello Admin,\n\n'
                 f'{assign_to.name} (email: {assign_to.email}) is assigned to RFQ #{rfq.id} for {rfq.company_name}.\n'
                 f'Due Date: {rfq.due_date or "Not specified"}\n'
+                f'Status: {rfq.current_status or "Processing"}\n' 
                 f'Regards,\nPrimeCRM Team'
             )
             try:
@@ -93,8 +95,8 @@ class RFQSerializer(serializers.ModelSerializer):
                 print(f"Email sent successfully to {admin_email} for RFQ #{rfq.id}")
             except Exception as e:
                 print(f"Failed to send email to {admin_email} for RFQ #{rfq.id}: {str(e)}")
-                email_sent = False  
-                
+                email_sent = False
+
         return email_sent
 
     def create(self, validated_data):
@@ -105,6 +107,7 @@ class RFQSerializer(serializers.ModelSerializer):
             RFQItem.objects.create(rfq=rfq, **item_data)
         email_sent = self.send_assignment_email(rfq, assign_to) if assign_to else False
         rfq.email_sent = email_sent
+        rfq.save()  
         return rfq
 
     def update(self, instance, validated_data):
@@ -121,6 +124,7 @@ class RFQSerializer(serializers.ModelSerializer):
         instance.attention_email = validated_data.get('attention_email', instance.attention_email)
         instance.due_date = validated_data.get('due_date', instance.due_date)
         instance.assign_to = assign_to
+        instance.current_status = validated_data.get('current_status', instance.current_status)  
         instance.save()
 
         instance.items.all().delete()
@@ -130,6 +134,7 @@ class RFQSerializer(serializers.ModelSerializer):
         if assign_to and (not instance.assign_to or instance.assign_to.id != assign_to.id):
             email_sent = self.send_assignment_email(instance, assign_to)
         instance.email_sent = email_sent
+        instance.save()
         return instance
 
     def to_representation(self, instance):

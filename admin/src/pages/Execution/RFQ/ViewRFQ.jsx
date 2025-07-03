@@ -23,7 +23,7 @@ const ViewRFQ = () => {
         ...rfq,
         si_no: index + 1,
         rfq_no: `RFQ-${String(rfq.id).padStart(3, "0")}`,
-        current_status: rfq.current_status || (rfq.due_date && new Date(rfq.due_date) < new Date() ? "Completed" : "Processing"),
+        current_status: rfq.current_status || "Processing", // Respect backend status, default to "Processing" if null
       }));
       setRfqs(updatedRfqs);
       if (selectedRfq) {
@@ -56,7 +56,7 @@ const ViewRFQ = () => {
     { name: "due_date", label: "Due Date", type: "date" },
     { name: "rfq_no", label: "RFQ No" },
     { name: "assign_to_name", label: "Assigned To" },
-    { name: "current_status", label: "Status" },
+    { name: "current_status",  label: "Status" },
   ];
 
   const allSingleFields = [
@@ -90,20 +90,13 @@ const ViewRFQ = () => {
       toast.success("RFQ deleted successfully");
       setRfqs((prev) => prev.filter((rfq) => rfq.id !== rfqId));
       setSelectedRfq(null);
+    } catch (err) {
+      console.error("Failed to delete RFQ:", err);
+      toast.error("Failed to delete RFQ.");
     } finally {
       setLoading(false);
     }
   };
-
-  // Pagination logic
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentRfqs = rfqs.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(rfqs.length / itemsPerPage);
-
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-  const nextPage = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
-  const prevPage = () => currentPage > 1 && setCurrentPage(currentPage - 1);
 
   const updateStatus = async (rfqId, newStatus) => {
     try {
@@ -115,12 +108,20 @@ const ViewRFQ = () => {
       if (selectedRfq && selectedRfq.id === rfqId) {
         setSelectedRfq((prev) => ({ ...prev, current_status: updatedRfq.current_status }));
       }
-      alert(`Status changed to ${newStatus}`);
+      toast.success(`Status changed to ${newStatus}`);
     } catch (err) {
       console.error("Failed to update status:", err);
       toast.error("Failed to update status. Please try again.");
     }
   };
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  const nextPage = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
+  const prevPage = () => currentPage > 1 && setCurrentPage(currentPage - 1);
+  const totalPages = Math.ceil(rfqs.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentRfqs = rfqs.slice(indexOfFirstItem, indexOfLastItem);
 
   if (loading) return <p className="text-black text-center">Loading...</p>;
   if (error) return <p className="text-red-600 text-center">{error}</p>;
@@ -160,7 +161,7 @@ const ViewRFQ = () => {
                   <td key={field.name} className="px-4 py-3 text-sm text-black">
                     {field.name === "current_status" ? (
                       <select
-                        value={rfq.current_status || ""}
+                        value={rfq.current_status || "Processing"}
                         onChange={(e) => updateStatus(rfq.id, e.target.value)}
                         className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       >
@@ -190,7 +191,6 @@ const ViewRFQ = () => {
         </table>
       </div>
 
-      {/* Pagination Controls */}
       <div className="mt-4 flex justify-center items-center space-x-2">
         <button
           onClick={prevPage}
