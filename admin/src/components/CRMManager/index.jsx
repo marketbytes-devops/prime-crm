@@ -193,7 +193,7 @@ const CRMManager = ({
     if (field.type === "select") {
       return (
         <div key={`${field.name}-${entryId}`} className="mb-4 relative dropdown-container">
-          <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-gray-800 mb-1">
+          <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-black mb-1">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
@@ -204,10 +204,10 @@ const CRMManager = ({
             onChange={(e) => onInputChange(e, entryId)}
             onFocus={() => setActiveDropdown(`${field.name}-${entryId}`)}
             placeholder={field.placeholder}
-            className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+            className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           />
-          {activeDropdown === `${field.name}-${entryId}` && value && options.length > 0 && (
+          {activeDropdown === `${field.name}-${entryId}` && options.length > 0 && (
             <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
               {options.map((option) => (
                 <li
@@ -228,7 +228,7 @@ const CRMManager = ({
     }
     return (
       <div key={`${field.name}-${entryId}`} className="mb-4">
-        <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-gray-800 mb-1">
+        <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-black mb-1">
           {field.label} {field.required && <span className="text-red-500">*</span>}
         </label>
         <input
@@ -239,7 +239,7 @@ const CRMManager = ({
           onChange={(e) => onInputChange(e, entryId)}
           placeholder={field.placeholder}
           min={field.min}
-          className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+          className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
           aria-required={field.required}
         />
       </div>
@@ -253,7 +253,7 @@ const CRMManager = ({
     if (field.type === "select") {
       return (
         <div key={field.name} className="mb-4 relative dropdown-container">
-          <label htmlFor={field.name} className="block text-xs font-medium text-gray-800 mb-1">
+          <label htmlFor={field.name} className="block text-xs font-medium text-black mb-1">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
@@ -264,10 +264,10 @@ const CRMManager = ({
             onChange={onSingleInputChange}
             onFocus={() => setActiveDropdown(field.name)}
             placeholder={field.placeholder}
-            className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+            className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           />
-          {activeDropdown === field.name && value && options.length > 0 && (
+          {activeDropdown === field.name && options.length > 0 && (
             <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
               {options.map((option) => (
                 <li
@@ -288,7 +288,7 @@ const CRMManager = ({
     }
     return (
       <div key={field.name} className="mb-4">
-        <label htmlFor={field.name} className="block text-xs font-medium text-gray-800 mb-1">
+        <label htmlFor={field.name} className="block text-xs font-medium text-black mb-1">
           {field.label} {field.required && <span className="text-red-500">*</span>}
         </label>
         <input
@@ -299,7 +299,7 @@ const CRMManager = ({
           onChange={onSingleInputChange}
           placeholder={field.placeholder}
           min={field.min}
-          className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+          className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
           aria-required={field.required}
         />
       </div>
@@ -307,7 +307,7 @@ const CRMManager = ({
   };
 
   return (
-    <div className="mx-auto p-4 bg-white rounded-lg shadow-md">
+    <div className="mx-auto p-4 bg-transparent rounded-lg shadow-sm">
       <style>
         {`
           .dropdown-container {
@@ -321,29 +321,29 @@ const CRMManager = ({
           }
         `}
       </style>
-      {title && <h2 className="text-lg font-medium mb-6 text-gray-800">{title}</h2>}
-      <form onSubmit={onSubmit || handleSubmit} className="mb-6">
+      {title && <h2 className="text-lg font-medium mb-4 text-black">{title}</h2>}
+      <form onSubmit={onSubmit || handleSubmit} className="mb-4">
         {currentStep === 1 && singleFields.map((field) => renderSingleField(field))}
         {currentStep === 2 && (
           <>
             {singleFields.length > 0 && (
-              <div className="mb-4 grid grid-cols-2 gap-4">
+              <div className="mb-4 grid grid-cols-2 gap-3">
                 {singleFields.map((field) => renderSingleField(field))}
               </div>
             )}
             {showRepeatableFields && (
               <>
                 {formEntries.map((entry) => (
-                  <div key={entry.id} className="mb-4 p-4 bg-gray-100 rounded grid grid-cols-3 gap-4">
+                  <div key={entry.id} className="mb-3 p-3 bg-gray-100 rounded grid grid-cols-3 gap-3">
                     {fields.map((field) => renderField(field, entry.id))}
                     {formEntries.length > 1 && (
                       <div className="flex items-center justify-end col-span-3">
                         <button
                           type="button"
                           onClick={() => removeFormBlock(entry.id)}
-                          className="bg-red-400 text-white px-2 py-1 text-sm rounded hover:bg-red-500 transition-colors duration-200 flex items-center"
+                          className="bg-black text-white px-3 py-2 text-sm rounded hover:bg-gray-800 transition-colors duration-200 flex items-center"
                         >
-                          <Trash size={16} className="mr-1" /> Remove
+                          <Trash size="16" className="mr-1" /> Remove
                         </button>
                       </div>
                     )}
@@ -352,9 +352,9 @@ const CRMManager = ({
                 <button
                   type="button"
                   onClick={addFormBlock}
-                  className="bg-green-500 text-white px-4 py-2 text-sm rounded hover:bg-green-600 transition-colors duration-200 flex items-center mb-4"
+                  className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200 flex items-center mb-3"
                 >
-                  <Plus size={18} className="mr-2" /> Add Item
+                  <Plus size="16" className="mr-1" /> Add Item
                 </button>
               </>
             )}
@@ -367,15 +367,15 @@ const CRMManager = ({
               type="button"
               onClick={onNext}
               disabled={isSubmitting}
-              className="bg-indigo-500 text-white px-4 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200 flex items-center"
+              className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200 flex items-center"
             >
-              Next <ArrowRight size={18} className="ml-2" />
+              Next <ArrowRight size="16" className="ml-1" />
             </button>
           ) : (
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-indigo-500 text-white px-4 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
+              className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
             >
               {isSubmitting ? "Saving..." : "Save"}
             </button>

@@ -202,7 +202,7 @@ const AddRFQ = () => {
   ];
 
   const stepTwoFields = [
-    { name: "due_date", label: "Due Date", type: "date", required: false, placeholder: "Select Due Date"},
+    { name: "due_date", label: "Due Date", type: "date", required: false, placeholder: "Select Due Date" },
     {
       name: "assign_to",
       label: "Assign To",
@@ -221,7 +221,7 @@ const AddRFQ = () => {
     if (field.type === "select") {
       return (
         <div key={`${field.name}-${entryId || field.name}`} className="mb-4 relative">
-          <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-gray-800 mb-1">
+          <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
@@ -232,10 +232,10 @@ const AddRFQ = () => {
             onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
             onFocus={() => setActiveDropdown(`${field.name}-${entryId || field.name}`)}
             placeholder={field.placeholder}
-            className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+            className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           />
-          {activeDropdown === `${field.name}-${entryId || field.name}` && value && options.length > 0 && (
+          {activeDropdown === `${field.name}-${entryId || field.name}` && options.length > 0 && (
             <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
               {options.map((option, index) => (
                 <li
@@ -257,7 +257,7 @@ const AddRFQ = () => {
     }
     return (
       <div key={`${field.name}-${entryId || field.name}`} className="mb-4">
-        <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-gray-800 mb-1">
+        <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
           {field.label} {field.required && <span className="text-red-500">*</span>}
         </label>
         <input
@@ -268,44 +268,57 @@ const AddRFQ = () => {
           onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
           placeholder={field.placeholder}
           min={field.min}
-          className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+          className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
           aria-required={field.required}
         />
       </div>
     );
   };
 
-  if (loading) return <p className="text-gray-600 text-center">Loading data...</p>;
+  if (loading) return <p className="text-black text-center">Loading data...</p>;
   if (error) return <p className="text-red-600 text-center">{error}</p>;
 
   return (
-    <div className="container mx-auto p-6 bg-gray-50 min-h-screen">
+    <div className="container mx-auto p-4 bg-transparent min-h-screen">
       {showClientModal && (
         <ClientSelectionModal onClose={() => setShowClientModal(false)} onSelect={handleClientSelect} />
       )}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-4">
         <div className="flex items-center">
-          <button onClick={() => navigate("/pre-job/view-rfq")} className="text-gray-500 hover:text-gray-700 mr-4">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button onClick={() => navigate("/pre-job/view-rfq")} className="text-black hover:text-indigo-500 mr-3">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <h1 className="text-2xl font-semibold text-gray-800">Add RFQ</h1>
+          <h1 className="text-xl font-semibold text-black">Add RFQ</h1>
         </div>
       </div>
-      <div className="mx-auto p-6 bg-white rounded-lg shadow-md">
-        <form onSubmit={handleSubmit} className="mb-6">
+      {/* Progress Bar */}
+      <div className="mb-6">
+        <div className="flex items-center justify-center space-x-4">
+          <div className="flex-1">
+            <div className={`h-2 rounded-full ${currentStep >= 1 ? 'bg-indigo-500' : 'bg-gray-300'}`}></div>
+            <p className="text-xs text-center mt-1 text-black">Step 1: Company Details</p>
+          </div>
+          <div className="flex-1">
+            <div className={`h-2 rounded-full ${currentStep === 2 ? 'bg-indigo-500' : 'bg-gray-300'}`}></div>
+            <p className="text-xs text-center mt-1 text-black">Step 2: RFQ Details</p>
+          </div>
+        </div>
+      </div>
+      <div className="mx-auto p-4 bg-white rounded-lg shadow-sm">
+        <form onSubmit={handleSubmit} className="mb-4">
           {currentStep === 1 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {companyFields.map((field) => renderField(field))}
             </div>
           )}
           {currentStep === 2 && (
             <>
-              <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                 {stepTwoFields.map((field) => renderField(field))}
               </div>
-              <div className="mb-6">
+              <div className="mb-4">
                 <label className="mr-4">
                   <input
                     type="checkbox"
@@ -313,7 +326,7 @@ const AddRFQ = () => {
                     onChange={(e) => setIncludeItems(e.target.checked)}
                     className="mr-2"
                   />
-                  Include Items
+                  <span className="text-black text-sm">Include Items</span>
                 </label>
                 <label>
                   <input
@@ -322,7 +335,7 @@ const AddRFQ = () => {
                     onChange={(e) => setIncludeProducts(e.target.checked)}
                     className="mr-2"
                   />
-                  Include Products
+                  <span className="text-black text-sm">Include Products</span>
                 </label>
               </div>
               {(includeItems || includeProducts) && (
@@ -330,7 +343,7 @@ const AddRFQ = () => {
                   {formData.items.map((entry) => (
                     <div
                       key={entry.id}
-                      className="mb-4 p-4 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4"
+                      className="mb-3 p-3 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-3"
                     >
                       {includeItems && renderField(
                         {
@@ -378,7 +391,7 @@ const AddRFQ = () => {
                           <button
                             type="button"
                             onClick={() => removeFormBlock(entry.id)}
-                            className="bg-red-400 text-white px-2 py-1 text-sm rounded hover:bg-red-500 transition-colors duration-200 flex items-center"
+                            className="bg-black text-white px-3 py-2 text-sm rounded hover:bg-gray-800 transition-colors duration-200 flex items-center"
                           >
                             <Trash size={16} className="mr-1" /> Remove
                           </button>
@@ -389,29 +402,29 @@ const AddRFQ = () => {
                   <button
                     type="button"
                     onClick={addFormBlock}
-                    className="bg-green-500 text-white px-4 py-2 text-sm rounded-lg hover:bg-green-600 transition-colors duration-200 flex items-center mb-4"
+                    className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200 flex items-center mb-3"
                   >
-                    <Plus size={18} className="mr-2" /> Add Entry
+                    <Plus size={16} className="mr-1" /> Add Entry
                   </button>
                 </>
               )}
             </>
           )}
-          <div className="flex justify-end mt-6">
+          <div className="flex justify-end mt-4">
             {currentStep === 1 ? (
               <button
                 type="button"
                 onClick={() => setCurrentStep(2)}
                 disabled={isSubmitting}
-                className="bg-indigo-500 text-white px-4 py-2 text-sm rounded-lg hover:bg-indigo-600 transition-colors duration-200 flex items-center"
+                className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200 flex items-center"
               >
-                Next <ArrowRight size={18} className="ml-2" />
+                Next <ArrowRight size="16" className="ml-1" />
               </button>
             ) : (
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-indigo-500 text-white px-4 py-2 text-sm rounded-lg hover:bg-indigo-600 transition-colors duration-200"
+                className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
               >
                 {isSubmitting ? "Saving..." : "Save"}
               </button>

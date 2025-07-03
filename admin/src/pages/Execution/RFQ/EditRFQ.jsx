@@ -17,6 +17,7 @@ const EditRFQ = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const [entryFieldTypes, setEntryFieldTypes] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -37,6 +38,19 @@ const EditRFQ = () => {
           apiClient.get("/teams/"),
         ]);
 
+        const fetchedItems = rfqResponse.data.items?.map((item, index) => ({
+          id: item.id || Date.now() + index,
+          item_name: item.item_name || "",
+          product_name: item.product_name || "",
+          quantity: String(item.quantity) || "",
+          unit: item.unit || "",
+        })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }];
+
+        const initialFieldTypes = {};
+        fetchedItems.forEach((item) => {
+          initialFieldTypes[item.id] = item.item_name ? "item" : item.product_name ? "product" : "";
+        });
+
         setFormData({
           company_name: rfqResponse.data.company_name || "",
           reference: rfqResponse.data.reference || "",
@@ -51,13 +65,7 @@ const EditRFQ = () => {
           assign_to: rfqResponse.data.assign_to ? String(rfqResponse.data.assign_to) : "",
           assign_to_designation: rfqResponse.data.assign_to_designation || "",
           rfq_no: rfqResponse.data.rfq_no || `RFQ-${String(rfqResponse.data.id).padStart(3, "0")}`,
-          items: rfqResponse.data.items?.map((item, index) => ({
-            id: item.id || Date.now() + index,
-            item_name: item.item_name || "",
-            product_name: item.product_name || "",
-            quantity: String(item.quantity) || "",
-            unit: item.unit || "",
-          })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }],
+          items: fetchedItems,
         });
 
         setRfqChannels(rfqChannelsResponse.data.map((channel) => channel.channel_name));
@@ -70,6 +78,7 @@ const EditRFQ = () => {
             label: `${member.name} (${member.designation})`,
           }))
         );
+        setEntryFieldTypes(initialFieldTypes);
       } catch (err) {
         console.error("Failed to fetch RFQ data:", err);
         setError("Failed to load RFQ data.");
@@ -98,11 +107,26 @@ const EditRFQ = () => {
     setActiveDropdown(null);
   };
 
-  const addFormBlock = () => {
+  const handleFieldTypeChange = (entryId, value) => {
+    setEntryFieldTypes((prev) => ({ ...prev, [entryId]: value }));
     setFormData((prev) => ({
       ...prev,
-      items: [...prev.items, { id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }],
+      items: prev.items.map((item) =>
+        item.id === entryId
+          ? { ...item, item_name: value === "item" ? item.item_name : "", product_name: value === "product" ? item.product_name : "" }
+          : item
+      ),
     }));
+    setActiveDropdown(null);
+  };
+
+  const addFormBlock = () => {
+    const newId = Date.now();
+    setFormData((prev) => ({
+      ...prev,
+      items: [...prev.items, { id: newId, item_name: "", product_name: "", quantity: "", unit: "" }],
+    }));
+    setEntryFieldTypes((prev) => ({ ...prev, [newId]: "" }));
   };
 
   const removeFormBlock = (entryId) => {
@@ -114,6 +138,11 @@ const EditRFQ = () => {
       ...prev,
       items: prev.items.filter((item) => item.id !== entryId),
     }));
+    setEntryFieldTypes((prev) => {
+      const newFieldTypes = { ...prev };
+      delete newFieldTypes[entryId];
+      return newFieldTypes;
+    });
   };
 
   const validateSingleFields = () => {
@@ -125,7 +154,8 @@ const EditRFQ = () => {
   };
 
   const validateEntry = (entry) => {
-    if (!entry.item_name && !entry.product_name) return "Item or Product is required";
+    if (!entry.item_name && !entry.product_name) return "Either Item or Product is required";
+    if (entry.item_name && entry.product_name) return "Only one of Item or Product can be provided";
     if (!entry.quantity) return "Quantity is required";
     if (parseFloat(entry.quantity) < 1) return "Quantity must be at least 1";
     if (!entry.unit) return "Unit is required";
@@ -247,7 +277,7 @@ const EditRFQ = () => {
     if (field.type === "select") {
       return (
         <div key={`${field.name}-${entryId || field.name}`} className="mb-4 relative">
-          <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-gray-800 mb-1">
+          <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
@@ -258,7 +288,7 @@ const EditRFQ = () => {
             onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
             onFocus={() => setActiveDropdown(`${field.name}-${entryId || field.name}`)}
             placeholder={field.placeholder}
-            className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+            className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           />
           {activeDropdown === `${field.name}-${entryId || field.name}` && options.length > 0 && (
@@ -283,7 +313,7 @@ const EditRFQ = () => {
     }
     return (
       <div key={`${field.name}-${entryId || field.name}`} className="mb-4">
-        <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-gray-800 mb-1">
+        <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
           {field.label} {field.required && <span className="text-red-500">*</span>}
         </label>
         <input
@@ -294,64 +324,90 @@ const EditRFQ = () => {
           onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
           placeholder={field.placeholder}
           min={field.min}
-          className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+          className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
           aria-required={field.required}
         />
       </div>
     );
   };
 
-  if (loading) return <p className="text-gray-600 text-center">Loading...</p>;
+  if (loading) return <p className="text-black text-center">Loading...</p>;
   if (error) return <p className="text-red-600 text-center">{error}</p>;
   if (!formData) return <p className="text-red-600 text-center">Form data not initialized.</p>;
 
   return (
-    <div className="container mx-auto p-6 bg-gray-50 min-h-screen">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto p-4 bg-transparent min-h-screen">
+      <div className="flex justify-between items-center mb-4">
         <div className="flex items-center">
-          <button onClick={() => navigate("/pre-job/view-rfq")} className="text-gray-500 hover:text-gray-700 mr-4">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button onClick={() => navigate("/pre-job/view-rfq")} className="text-black hover:text-indigo-500 mr-3">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <h1 className="text-2xl font-semibold text-gray-800">Edit RFQ #{formData.rfq_no}</h1>
+          <h1 className="text-xl font-semibold text-black">Edit RFQ #{formData.rfq_no}</h1>
         </div>
       </div>
-      <div className="mx-auto p-6 bg-white rounded-lg shadow-md">
-        <form onSubmit={handleSubmit} className="mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="mx-auto p-4 bg-white rounded-lg shadow-sm">
+        <form onSubmit={handleSubmit} className="mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {fields.map((field) => renderField(field))}
           </div>
-          <div className="mt-6">
-            {formData.items.map((entry) => (
-              <div key={entry.id} className="mb-4 p-4 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4">
-                {repeatableFields.map((field) => renderField(field, entry.id))}
-                {formData.items.length > 1 && (
-                  <div className="flex items-center justify-end md:col-span-3">
-                    <button
-                      type="button"
-                      onClick={() => removeFormBlock(entry.id)}
-                      className="bg-red-400 text-white px-2 py-1 text-sm rounded hover:bg-red-500 transition-colors duration-200 flex items-center"
-                    >
-                      <Trash size={16} className="mr-1" /> Remove
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+          <div className="mt-4">
+            {formData.items.map((entry) => {
+              const fieldType = entryFieldTypes[entry.id] || (entry.item_name ? "item" : entry.product_name ? "product" : "");
+              return (
+                <div key={entry.id} className="mb-3 p-3 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {!fieldType ? (
+                    <div className="mb-4">
+                      <label htmlFor={`field-type-${entry.id}`} className="block text-xs font-medium text-black mb-1">
+                        Select Field Type <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        id={`field-type-${entry.id}`}
+                        value={fieldType}
+                        onChange={(e) => handleFieldTypeChange(entry.id, e.target.value)}
+                        className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+                      >
+                        <option value="" disabled>Select Item or Product</option>
+                        <option value="item">Item</option>
+                        <option value="product">Product</option>
+                      </select>
+                    </div>
+                  ) : (
+                    renderField(
+                      repeatableFields.find((f) => f.name === (fieldType === "item" ? "item_name" : "product_name")),
+                      entry.id
+                    )
+                  )}
+                  {renderField(repeatableFields.find((f) => f.name === "quantity"), entry.id)}
+                  {renderField(repeatableFields.find((f) => f.name === "unit"), entry.id)}
+                  {formData.items.length > 1 && (
+                    <div className="flex items-center justify-end md:col-span-3">
+                      <button
+                        type="button"
+                        onClick={() => removeFormBlock(entry.id)}
+                        className="bg-black text-white px-3 py-2 text-sm rounded hover:bg-gray-800 transition-colors duration-200 flex items-center"
+                      >
+                        <Trash size="16" className="mr-1" /> Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             <button
               type="button"
               onClick={addFormBlock}
-              className="bg-green-500 text-white px-4 py-2 text-sm rounded-lg hover:bg-green-600 transition-colors duration-200 flex items-center mb-4"
+              className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200 flex items-center mb-3"
             >
-              <Plus size={18} className="mr-2" /> Add Item
+              <Plus size="16" className="mr-1" /> Add Item
             </button>
           </div>
-          <div className="flex justify-end mt-6">
+          <div className="flex justify-end mt-4">
             <button
               type="submit"
               disabled={loading}
-              className="bg-indigo-500 text-white px-4 py-2 text-sm rounded-lg hover:bg-indigo-600 transition-colors duration-200"
+              className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
             >
               {loading ? "Saving..." : "Save"}
             </button>

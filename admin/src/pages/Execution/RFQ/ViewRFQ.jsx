@@ -94,26 +94,26 @@ const ViewRFQ = () => {
     }
   };
 
-  if (loading) return <p className="text-gray-600 text-center">Loading...</p>;
+  if (loading) return <p className="text-black text-center">Loading...</p>;
   if (error) return <p className="text-red-600 text-center">{error}</p>;
-  if (rfqs.length === 0) return <p className="text-gray-600 text-center">No RFQs found.</p>;
+  if (rfqs.length === 0) return <p className="text-black text-center">No RFQs found.</p>;
 
   return (
-    <div className="container mx-auto p-6 bg-gray-50 min-h-screen">
-      <h2 className="text-2xl font-semibold mb-6 text-gray-800">View RFQs</h2>
-      <div className="overflow-x-auto rounded-lg shadow-md">
+    <div className="container mx-auto p-4 bg-transparent min-h-screen">
+      <h2 className="text-xl font-semibold mb-4 text-black">View RFQs</h2>
+      <div className="overflow-x-auto rounded-lg shadow-sm">
         <table className="min-w-full bg-white border border-gray-200">
           <thead>
             <tr className="bg-gray-100">
               {tableFields.map((field) => (
                 <th
                   key={field.name}
-                  className="px-6 py-3 text-sm font-medium text-gray-600 text-left"
+                  className="px-4 py-2 text-sm font-medium text-black text-left"
                 >
                   {field.label}
                 </th>
               ))}
-              <th className="px-6 py-3 text-sm font-medium text-gray-600 text-left">
+              <th className="px-4 py-2 text-sm font-medium text-black text-left">
                 Actions
               </th>
             </tr>
@@ -122,7 +122,7 @@ const ViewRFQ = () => {
             {rfqs.map((rfq) => (
               <tr key={rfq.id} className="border-t hover:bg-gray-50">
                 {tableFields.map((field) => (
-                  <td key={field.name} className="px-6 py-4 text-sm text-gray-800">
+                  <td key={field.name} className="px-4 py-3 text-sm text-black">
                     {field.type === "date"
                       ? rfq[field.name]
                         ? new Date(rfq[field.name]).toLocaleDateString()
@@ -130,10 +130,10 @@ const ViewRFQ = () => {
                       : rfq[field.name] || "N/A"}
                   </td>
                 ))}
-                <td className="px-6 py-4 text-sm text-gray-800">
+                <td className="px-4 py-3 text-sm text-black">
                   <button
                     onClick={() => setSelectedRfq(rfq)}
-                    className="bg-indigo-500 text-white px-4 py-2 text-sm rounded-lg hover:bg-indigo-600 transition-colors duration-200"
+                    className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
                   >
                     View Details
                   </button>
@@ -146,8 +146,8 @@ const ViewRFQ = () => {
 
       {selectedRfq && (
         <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50 transition-opacity duration-300">
-          <div className="scale-80 bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg">
-            <h3 className="text-xl font-semibold mb-4 text-gray-800 border-b pb-2">
+          <div className="scale-80 bg-white rounded-lg shadow-sm p-6 w-full max-w-lg">
+            <h3 className="text-lg font-semibold mb-3 text-black border-b pb-2">
               RFQ Details #{selectedRfq.rfq_no}
             </h3>
             <ViewCard
@@ -157,26 +157,26 @@ const ViewRFQ = () => {
               showRepeatableFields={true}
               initialData={selectedRfq}
             />
-            <div className="mt-6 flex justify-end space-x-4">
+            <div className="mt-4 flex justify-end space-x-3">
               <button
                 onClick={() =>
                   navigate(`/pre-job/edit-rfq`, {
                     state: { rfqData: selectedRfq, isEditing: true },
                   })
                 }
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200"
+                className="bg-indigo-500 text-white px-3 py-2 rounded hover:bg-indigo-600 transition-colors duration-200"
               >
                 Edit
               </button>
               <button
                 onClick={() => handleDelete(selectedRfq.id)}
-                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors duration-200"
+                className="bg-black text-white px-3 py-2 rounded hover:bg-gray-800 transition-colors duration-200"
               >
                 Delete
               </button>
               <button
                 onClick={() => setSelectedRfq(null)}
-                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors duration-200"
+                className="bg-gray-200 text-black px-3 py-2 rounded hover:bg-gray-300 transition-colors duration-200"
               >
                 Close
               </button>
