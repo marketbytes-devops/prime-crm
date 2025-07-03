@@ -35,6 +35,13 @@ class RFQ(models.Model):
     attention_email = models.EmailField(blank=True, null=True)
     due_date = models.DateField(blank=True, null=True)
     assign_to = models.ForeignKey(TeamMember, on_delete=models.SET_NULL, null=True, blank=True)
+    current_status = models.CharField(
+        max_length=20,
+        choices=[('Processing', 'Processing'), ('Completed', 'Completed')],
+        default='Processing',
+        null=True,
+        blank=True
+    )
 
     def __str__(self):
         return f"RFQ {self.company_name or 'Unnamed Company'}"
