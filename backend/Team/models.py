@@ -1,4 +1,3 @@
-# teams/models.py
 from django.db import models
 
 class TeamMember(models.Model):

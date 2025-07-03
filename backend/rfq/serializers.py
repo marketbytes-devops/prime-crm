@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.core.mail import send_mail
 from .models import RFQ, RFQChannel, Client, RFQItem
-from Team.models import TeamMember
+from team.models import TeamMember
 
 class RFQChannelSerializer(serializers.ModelSerializer):
     class Meta:
@@ -44,7 +44,7 @@ class RFQSerializer(serializers.ModelSerializer):
             'due_date', 'assign_to', 'assign_to_name', 'assign_to_designation', 'items'
         ]
 
-    def validate_assign_to(self, value):  # Added for validation
+    def validate_assign_to(self, value):  
         if value and not value.email:
             raise serializers.ValidationError("Selected team member must have a valid email address.")
         return value

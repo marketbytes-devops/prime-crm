@@ -28,11 +28,10 @@ urlpatterns = [
         path("", include("rfq.urls")),
         path("", include("rfqchannels.urls")),
         path("", include("product.urls")),
-        path("", include("Item.urls")),
-        path("", include("Team.urls")),   
+        path("", include("item.urls")),
+        path("", include("team.urls")),   
     ])),
     path("documentation/", include("documentation.urls")),
 ]
 
-# Unconditionally include media URL patterns
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

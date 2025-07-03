@@ -33,9 +33,9 @@ INSTALLED_APPS = [
     'authapp',
     'rfq',
     'rfqchannels',
-    'Item',
     'product',
-    'Team',
+    'item',
+    'team',
 
 ]
 
