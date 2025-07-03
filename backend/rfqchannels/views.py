@@ -1,14 +1,15 @@
-# settings/views.py
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework import status
 from .models import RFQChannel
 from .serializers import RFQChannelSerializer
+from rest_framework.permissions import AllowAny
 
 class RFQChannelViewSet(viewsets.ModelViewSet):
     queryset = RFQChannel.objects.all()
     serializer_class = RFQChannelSerializer
-
+    permission_classes = [AllowAny]
+    
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():

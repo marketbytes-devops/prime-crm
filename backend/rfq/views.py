@@ -1,4 +1,3 @@
-# rfq/views.py
 from rest_framework import viewsets
 from .models import RFQ, RFQChannel, Client
 from .serializers import RFQSerializer, RFQChannelSerializer, ClientSerializer

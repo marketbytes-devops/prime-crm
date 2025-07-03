@@ -100,7 +100,6 @@ class RFQSerializer(serializers.ModelSerializer):
         instance.assign_to = assign_to
         instance.save()
 
-        # Update or create items
         instance.items.all().delete()
         for item_data in items_data:
             RFQItem.objects.create(rfq=instance, **item_data)
