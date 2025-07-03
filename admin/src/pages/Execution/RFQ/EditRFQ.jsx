@@ -64,6 +64,7 @@ const EditRFQ = () => {
           due_date: rfqResponse.data.due_date || "",
           assign_to: rfqResponse.data.assign_to ? String(rfqResponse.data.assign_to) : "",
           rfq_no: rfqResponse.data.rfq_no || `RFQ-${String(rfqResponse.data.id).padStart(3, "0")}`,
+          current_status: rfqResponse.data.current_status || "Processing", // Initialize current_status
           items: fetchedItems,
         });
 
@@ -145,7 +146,7 @@ const EditRFQ = () => {
   };
 
   const validateSingleFields = () => {
-    const requiredFields = ["company_name", "address", "phone", "email", "due_date", "assign_to"];
+    const requiredFields = ["company_name", "address", "phone", "email", "due_date", "assign_to", "current_status"];
     for (const field of requiredFields) {
       if (!formData[field]) return `${field.replace("_", " ")} is required`;
     }
@@ -231,6 +232,14 @@ const EditRFQ = () => {
       options: teamMembers.map((member) => member.label),
       optionValues: teamMembers.map((member) => member.value),
     },
+    {
+      name: "current_status",
+      label: "Status",
+      type: "select",
+      required: true,
+      placeholder: "Select Status",
+      options: ["Processing", "Completed"],
+    },
   ];
 
   const repeatableFields = [
@@ -270,9 +279,9 @@ const EditRFQ = () => {
 
   const renderField = (field, entryId = null) => {
     const value = entryId ? formData.items.find((e) => e.id === entryId)?.[field.name] || "" : formData[field.name] || "";
-    const options = field.name === "item_name" ? items : field.name === "product_name" ? products : field.name === "unit" ? units : field.name === "rfq_channel" ? rfqChannels : field.name === "assign_to" ? teamMembers.map((m) => m.label) : field.options || [];
+    const options = field.name === "item_name" ? items : field.name === "product_name" ? products : field.name === "unit" ? units : field.name === "rfq_channel" ? rfqChannels : field.name === "assign_to" ? teamMembers.map((m) => m.label) : field.name === "current_status" ? field.options : field.options || [];
 
-    if (field.type === "select" && field.name !== "assign_to") {
+    if (field.type === "select") {
       return (
         <div key={`${field.name}-${entryId || field.name}`} className="mb-4 relative">
           <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
@@ -288,28 +297,7 @@ const EditRFQ = () => {
           >
             <option value="" disabled>{field.placeholder}</option>
             {options.map((option, index) => (
-              <option key={index} value={option}>{option}</option>
-            ))}
-          </select>
-        </div>
-      );
-    } else if (field.type === "select" && field.name === "assign_to") {
-      return (
-        <div key={`${field.name}-${entryId || field.name}`} className="mb-4">
-          <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
-          </label>
-          <select
-            id={`${field.name}-${entryId || field.name}`}
-            name={field.name}
-            value={value}
-            onChange={(e) => handleSingleInputChange(e)}
-            className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
-            aria-required={field.required}
-          >
-            <option value="" disabled>{field.placeholder}</option>
-            {teamMembers.map((member, index) => (
-              <option key={index} value={member.value}>{member.label}</option>
+              <option key={index} value={field.name === "assign_to" ? teamMembers[index]?.value : option}>{option}</option>
             ))}
           </select>
         </div>
