@@ -23,7 +23,8 @@ const ViewRFQ = () => {
         ...rfq,
         si_no: index + 1,
         rfq_no: `RFQ-${String(rfq.id).padStart(3, "0")}`,
-        current_status: rfq.current_status || "Processing", // Respect backend status, default to "Processing" if null
+        current_status: rfq.current_status || "Processing",
+        is_past_due: rfq.due_date && new Date(rfq.due_date) < new Date().setHours(0, 0, 0, 0) && rfq.current_status !== "Completed",
       }));
       setRfqs(updatedRfqs);
       if (selectedRfq) {
@@ -56,7 +57,7 @@ const ViewRFQ = () => {
     { name: "due_date", label: "Due Date", type: "date" },
     { name: "rfq_no", label: "RFQ No" },
     { name: "assign_to_name", label: "Assigned To" },
-    { name: "current_status",  label: "Status" },
+    { name: "current_status", label: "Status" },
   ];
 
   const allSingleFields = [
@@ -103,10 +104,10 @@ const ViewRFQ = () => {
       const response = await apiClient.put(`/add-rfqs/${rfqId}/`, { current_status: newStatus });
       const updatedRfq = response.data;
       setRfqs((prev) =>
-        prev.map((rfq) => (rfq.id === rfqId ? { ...rfq, current_status: updatedRfq.current_status } : rfq))
+        prev.map((rfq) => (rfq.id === rfqId ? { ...rfq, current_status: updatedRfq.current_status, is_past_due: updatedRfq.current_status !== "Completed" && new Date(rfq.due_date) < new Date().setHours(0, 0, 0, 0) } : rfq))
       );
       if (selectedRfq && selectedRfq.id === rfqId) {
-        setSelectedRfq((prev) => ({ ...prev, current_status: updatedRfq.current_status }));
+        setSelectedRfq((prev) => ({ ...prev, current_status: updatedRfq.current_status, is_past_due: updatedRfq.current_status !== "Completed" && new Date(prev.due_date) < new Date().setHours(0, 0, 0, 0) }));
       }
       toast.success(`Status changed to ${newStatus}`);
     } catch (err) {
@@ -156,7 +157,7 @@ const ViewRFQ = () => {
           </thead>
           <tbody>
             {currentRfqs.map((rfq) => (
-              <tr key={rfq.id} className="border-t hover:bg-gray-50">
+              <tr key={rfq.id} className={`border-t hover:bg-gray-50 ${rfq.is_past_due ? "bg-red-50" : ""}`}>
                 {tableFields.map((field) => (
                   <td key={field.name} className="px-4 py-3 text-sm text-black">
                     {field.name === "current_status" ? (
@@ -174,6 +175,9 @@ const ViewRFQ = () => {
                         : "N/A"
                     ) : (
                       rfq[field.name] || "N/A"
+                    )}
+                    {field.name === "due_date" && rfq.is_past_due && (
+                      <span className="text-red-600 text-xs ml-2">(Past Due)</span>
                     )}
                   </td>
                 ))}
@@ -225,6 +229,9 @@ const ViewRFQ = () => {
           <div className="scale-80 bg-white rounded-lg shadow-sm p-6 w-full max-w-lg">
             <h3 className="text-lg font-semibold mb-3 text-black border-b pb-2">
               RFQ Details #{selectedRfq.rfq_no}
+              {selectedRfq.is_past_due && (
+                <span className="text-red-600 text-sm ml-2">(Past Due)</span>
+              )}
             </h3>
             <ViewCard
               singleFields={allSingleFields}

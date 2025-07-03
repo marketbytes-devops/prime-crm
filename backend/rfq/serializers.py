@@ -3,6 +3,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from .models import RFQ, RFQChannel, Client, RFQItem
 from team.models import TeamMember
+from datetime import date
 
 class RFQChannelSerializer(serializers.ModelSerializer):
     class Meta:
@@ -42,7 +43,7 @@ class RFQSerializer(serializers.ModelSerializer):
             'id', 'created_at', 'company_name', 'reference', 'address', 'phone', 'email',
             'rfq_channel', 'attention_name', 'attention_phone', 'attention_email',
             'due_date', 'assign_to', 'assign_to_name', 'assign_to_designation', 'items',
-            'current_status' 
+            'current_status'
         ]
 
     def validate_assign_to(self, value):
@@ -58,7 +59,7 @@ class RFQSerializer(serializers.ModelSerializer):
                 f'Hello {assign_to.name},\n\n'
                 f'You have been assigned to RFQ #{rfq.id} for {rfq.company_name}.\n'
                 f'Due Date: {rfq.due_date or "Not specified"}\n'
-                f'Status: {rfq.current_status or "Processing"}\n'  
+                f'Status: {rfq.current_status or "Processing"}\n'
                 f'Please check the PrimeCRM dashboard for details.\n\n'
                 f'Regards,\nPrimeCRM Team'
             )
@@ -81,7 +82,7 @@ class RFQSerializer(serializers.ModelSerializer):
                 f'Hello Admin,\n\n'
                 f'{assign_to.name} (email: {assign_to.email}) is assigned to RFQ #{rfq.id} for {rfq.company_name}.\n'
                 f'Due Date: {rfq.due_date or "Not specified"}\n'
-                f'Status: {rfq.current_status or "Processing"}\n' 
+                f'Status: {rfq.current_status or "Processing"}\n'
                 f'Regards,\nPrimeCRM Team'
             )
             try:
@@ -99,6 +100,100 @@ class RFQSerializer(serializers.ModelSerializer):
 
         return email_sent
 
+    def send_due_date_reminder(self, rfq, assign_to):
+        email_sent = False
+        if assign_to and assign_to.email and rfq.due_date == date.today() and rfq.current_status != 'Completed':
+            subject = f'Reminder: RFQ #{rfq.id} Due Today'
+            message = (
+                f'Hello {assign_to.name},\n\n'
+                f'Your due date for RFQ #{rfq.id} for {rfq.company_name} is ending today.\n'
+                f'Please ensure all necessary actions are completed promptly.\n'
+                f'Check the PrimeCRM dashboard for details.\n\n'
+                f'Regards,\nPrimeCRM Team'
+            )
+            try:
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=None,
+                    recipient_list=[assign_to.email],
+                    fail_silently=True,
+                )
+                email_sent = True
+                print(f"Reminder email sent successfully to {assign_to.email} for RFQ #{rfq.id}")
+            except Exception as e:
+                print(f"Failed to send reminder email to {assign_to.email} for RFQ #{rfq.id}: {str(e)}")
+
+            admin_email = settings.ADMIN_EMAIL
+            admin_subject = f'RFQ #{rfq.id} Due Today Notification'
+            admin_message = (
+                f'Hello Admin,\n\n'
+                f'{assign_to.name} (email: {assign_to.email}) is assigned to RFQ #{rfq.id} for {rfq.company_name}.\n'
+                f'The due date for this RFQ is ending today.\n'
+                f'Regards,\nPrimeCRM Team'
+            )
+            try:
+                send_mail(
+                    subject=admin_subject,
+                    message=admin_message,
+                    from_email=None,
+                    recipient_list=[admin_email],
+                    fail_silently=True,
+                )
+                print(f"Reminder email sent successfully to {admin_email} for RFQ #{rfq.id}")
+            except Exception as e:
+                print(f"Failed to send reminder email to {admin_email} for RFQ #{rfq.id}: {str(e)}")
+                email_sent = False
+
+        return email_sent
+
+    def send_past_due_alert(self, rfq, assign_to):
+        email_sent = False
+        if assign_to and assign_to.email and rfq.due_date < date.today() and rfq.current_status != 'Completed':
+            subject = f'Alert: RFQ #{rfq.id} Past Due'
+            message = (
+                f'Hello {assign_to.name},\n\n'
+                f'The due date for RFQ #{rfq.id} for {rfq.company_name} has passed.\n'
+                f'Please take immediate action to address this.\n'
+                f'Check the PrimeCRM dashboard for details.\n\n'
+                f'Regards,\nPrimeCRM Team'
+            )
+            try:
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=None,
+                    recipient_list=[assign_to.email],
+                    fail_silently=True,
+                )
+                email_sent = True
+                print(f"Past due alert email sent successfully to {assign_to.email} for RFQ #{rfq.id}")
+            except Exception as e:
+                print(f"Failed to send past due alert email to {assign_to.email} for RFQ #{rfq.id}: {str(e)}")
+
+            admin_email = settings.ADMIN_EMAIL
+            admin_subject = f'RFQ #{rfq.id} Past Due Notification'
+            admin_message = (
+                f'Hello Admin,\n\n'
+                f'{assign_to.name} (email: {assign_to.email}) is assigned to RFQ #{rfq.id} for {rfq.company_name}.\n'
+                f'The due date for this RFQ has passed and it remains incomplete.\n'
+                f'Regards,\nPrimeCRM Team'
+            )
+            try:
+                send_mail(
+                    subject=admin_subject,
+                    message=admin_message,
+                    from_email=None,
+                    recipient_list=[admin_email],
+                    fail_silently=True,
+                )
+                print(f"Past due alert email sent successfully to {admin_email} for RFQ #{rfq.id}")
+            except Exception as e:
+                print(f"Failed to send past due alert email to {admin_email} for RFQ #{rfq.id}: {str(e)}")
+                email_sent = False
+
+        return email_sent
+
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
         assign_to = validated_data.get('assign_to')
@@ -107,7 +202,7 @@ class RFQSerializer(serializers.ModelSerializer):
             RFQItem.objects.create(rfq=rfq, **item_data)
         email_sent = self.send_assignment_email(rfq, assign_to) if assign_to else False
         rfq.email_sent = email_sent
-        rfq.save()  
+        rfq.save()
         return rfq
 
     def update(self, instance, validated_data):
@@ -124,7 +219,7 @@ class RFQSerializer(serializers.ModelSerializer):
         instance.attention_email = validated_data.get('attention_email', instance.attention_email)
         instance.due_date = validated_data.get('due_date', instance.due_date)
         instance.assign_to = assign_to
-        instance.current_status = validated_data.get('current_status', instance.current_status)  
+        instance.current_status = validated_data.get('current_status', instance.current_status)
         instance.save()
 
         instance.items.all().delete()

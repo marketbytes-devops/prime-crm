@@ -18,6 +18,7 @@ const EditRFQ = () => {
   const [error, setError] = useState(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [entryFieldTypes, setEntryFieldTypes] = useState({});
+  const [isPastDue, setIsPastDue] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,6 +80,13 @@ const EditRFQ = () => {
           }))
         );
         setEntryFieldTypes(initialFieldTypes);
+
+        const dueDate = new Date(rfqResponse.data.due_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (dueDate < today && rfqResponse.data.current_status !== "Completed") {
+          setIsPastDue(true);
+        }
       } catch (err) {
         console.error("Failed to fetch RFQ data:", err);
         setError("Failed to load RFQ data.");
@@ -94,6 +102,9 @@ const EditRFQ = () => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setActiveDropdown(null);
+    if (name === "current_status" && value === "Completed") {
+      setIsPastDue(false); 
+    }
   };
 
   const handleInputChange = (e, entryId) => {
@@ -338,6 +349,11 @@ const EditRFQ = () => {
           </button>
           <h1 className="text-xl font-semibold text-black">Edit RFQ #{formData.rfq_no}</h1>
         </div>
+        {isPastDue && (
+          <div className="text-red-600 font-medium text-sm">
+            Alert: This RFQ is past due. Please update the status to Completed or take action.
+          </div>
+        )}
       </div>
       <div className="mx-auto p-4 bg-white rounded-lg shadow-sm">
         <form onSubmit={handleSubmit} className="mb-4">
@@ -350,32 +366,32 @@ const EditRFQ = () => {
               const fieldType = entryFieldTypes[entry.id] || (entry.item_name ? "item" : entry.product_name ? "product" : "");
               return (
                 <>
-                <div key={entry.id} className="mb-3 p-3 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
-                  {!fieldType ? (
-                    <div className="mb-4">
-                      <label htmlFor={`field-type-${entry.id}`} className="block text-xs font-medium text-black mb-1">
-                        Select Field Type <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        id={`field-type-${entry.id}`}
-                        value={fieldType}
-                        onChange={(e) => handleFieldTypeChange(entry.id, e.target.value)}
-                        className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
-                      >
-                        <option value="" disabled>Select Item or Product</option>
-                        <option value="item">Item</option>
-                        <option value="product">Product</option>
-                      </select>
-                    </div>
-                  ) : (
-                    renderField(
-                      repeatableFields.find((f) => f.name === (fieldType === "item" ? "item_name" : "product_name")),
-                      entry.id
-                    )
-                  )}
-                  {renderField(repeatableFields.find((f) => f.name === "quantity"), entry.id)}
-                  {renderField(repeatableFields.find((f) => f.name === "unit"), entry.id)}
-                </div>
+                  <div key={entry.id} className="mb-3 p-3 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
+                    {!fieldType ? (
+                      <div className="mb-4">
+                        <label htmlFor={`field-type-${entry.id}`} className="block text-xs font-medium text-black mb-1">
+                          Select Field Type <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          id={`field-type-${entry.id}`}
+                          value={fieldType}
+                          onChange={(e) => handleFieldTypeChange(entry.id, e.target.value)}
+                          className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+                        >
+                          <option value="" disabled>Select Item or Product</option>
+                          <option value="item">Item</option>
+                          <option value="product">Product</option>
+                        </select>
+                      </div>
+                    ) : (
+                      renderField(
+                        repeatableFields.find((f) => f.name === (fieldType === "item" ? "item_name" : "product_name")),
+                        entry.id
+                      )
+                    )}
+                    {renderField(repeatableFields.find((f) => f.name === "quantity"), entry.id)}
+                    {renderField(repeatableFields.find((f) => f.name === "unit"), entry.id)}
+                  </div>
                   <div className="flex items-center justify-end mb-3">
                     <button
                       type="button"
