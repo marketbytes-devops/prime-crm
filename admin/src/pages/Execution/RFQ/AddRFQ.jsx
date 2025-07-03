@@ -41,7 +41,6 @@ const AddRFQ = () => {
     })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,7 +55,7 @@ const AddRFQ = () => {
         ]);
 
         setRfqChannels(rfqResponse.data.map((channel) => channel.channel_name));
-        setItems(rfqResponse.data.map((item) => item.name));
+        setItems(itemsResponse.data.map((item) => item.name));
         setProducts(productsResponse.data.map((product) => product.name));
         setUnits(unitsResponse.data.map((unit) => unit.name));
         setTeamMembers(
@@ -89,13 +88,11 @@ const AddRFQ = () => {
         item.id === entryId ? { ...item, [name]: value } : item
       ),
     }));
-    setActiveDropdown(null);
   };
 
   const handleSingleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    setActiveDropdown(null);
   };
 
   const addFormBlock = () => {
@@ -216,42 +213,48 @@ const AddRFQ = () => {
 
   const renderField = (field, entryId = null) => {
     const value = entryId ? formData.items.find((e) => e.id === entryId)?.[field.name] || "" : formData[field.name] || "";
-    const options = field.name === "item_name" ? items : field.name === "product_name" ? products : field.name === "unit" ? units : field.name === "assign_to" ? teamMembers.map((m) => m.label) : field.options || [];
+    const options = field.name === "item_name" ? items : field.name === "product_name" ? products : field.name === "unit" ? units : field.name === "rfq_channel" ? rfqChannels : field.options || [];
 
-    if (field.type === "select") {
+    if (field.type === "select" && field.name !== "assign_to") {
       return (
         <div key={`${field.name}-${entryId || field.name}`} className="mb-4 relative">
           <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
-          <input
-            type="text"
+          <select
             id={`${field.name}-${entryId || field.name}`}
             name={field.name}
             value={value}
             onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
-            onFocus={() => setActiveDropdown(`${field.name}-${entryId || field.name}`)}
-            placeholder={field.placeholder}
             className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
-          />
-          {activeDropdown === `${field.name}-${entryId || field.name}` && options.length > 0 && (
-            <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
-              {options.map((option, index) => (
-                <li
-                  key={index}
-                  className="p-2 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => {
-                    const event = { target: { name: field.name, value: field.name === "assign_to" ? teamMembers[index].value : option } };
-                    entryId ? handleInputChange(event, entryId) : handleSingleInputChange(event);
-                    setActiveDropdown(null);
-                  }}
-                >
-                  {option}
-                </li>
-              ))}
-            </ul>
-          )}
+          >
+            <option value="" disabled>{field.placeholder}</option>
+            {options.map((option, index) => (
+              <option key={index} value={option}>{option}</option>
+            ))}
+          </select>
+        </div>
+      );
+    } else if (field.type === "select" && field.name === "assign_to") {
+      return (
+        <div key={`${field.name}-${entryId || field.name}`} className="mb-4">
+          <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
+            {field.label} {field.required && <span className="text-red-500">*</span>}
+          </label>
+          <select
+            id={`${field.name}-${entryId || field.name}`}
+            name={field.name}
+            value={value}
+            onChange={(e) => handleSingleInputChange(e)}
+            className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+            aria-required={field.required}
+          >
+            <option value="" disabled>{field.placeholder}</option>
+            {teamMembers.map((member, index) => (
+              <option key={index} value={member.value}>{member.label}</option>
+            ))}
+          </select>
         </div>
       );
     }

@@ -63,7 +63,6 @@ const EditRFQ = () => {
           attention_email: rfqResponse.data.attention_email || "",
           due_date: rfqResponse.data.due_date || "",
           assign_to: rfqResponse.data.assign_to ? String(rfqResponse.data.assign_to) : "",
-          assign_to_designation: rfqResponse.data.assign_to_designation || "",
           rfq_no: rfqResponse.data.rfq_no || `RFQ-${String(rfqResponse.data.id).padStart(3, "0")}`,
           items: fetchedItems,
         });
@@ -232,7 +231,6 @@ const EditRFQ = () => {
       options: teamMembers.map((member) => member.label),
       optionValues: teamMembers.map((member) => member.value),
     },
-    { name: "assign_to_designation", label: "Designation", type: "text", required: false, placeholder: "Enter Designation" },
   ];
 
   const repeatableFields = [
@@ -274,40 +272,46 @@ const EditRFQ = () => {
     const value = entryId ? formData.items.find((e) => e.id === entryId)?.[field.name] || "" : formData[field.name] || "";
     const options = field.name === "item_name" ? items : field.name === "product_name" ? products : field.name === "unit" ? units : field.name === "rfq_channel" ? rfqChannels : field.name === "assign_to" ? teamMembers.map((m) => m.label) : field.options || [];
 
-    if (field.type === "select") {
+    if (field.type === "select" && field.name !== "assign_to") {
       return (
         <div key={`${field.name}-${entryId || field.name}`} className="mb-4 relative">
           <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
-          <input
-            type="text"
+          <select
             id={`${field.name}-${entryId || field.name}`}
             name={field.name}
             value={value}
             onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
-            onFocus={() => setActiveDropdown(`${field.name}-${entryId || field.name}`)}
-            placeholder={field.placeholder}
             className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
-          />
-          {activeDropdown === `${field.name}-${entryId || field.name}` && options.length > 0 && (
-            <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
-              {options.map((option, index) => (
-                <li
-                  key={index}
-                  className="p-2 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => {
-                    const event = { target: { name: field.name, value: field.name === "assign_to" ? teamMembers[index].value : option } };
-                    entryId ? handleInputChange(event, entryId) : handleSingleInputChange(event);
-                    setActiveDropdown(null);
-                  }}
-                >
-                  {option}
-                </li>
-              ))}
-            </ul>
-          )}
+          >
+            <option value="" disabled>{field.placeholder}</option>
+            {options.map((option, index) => (
+              <option key={index} value={option}>{option}</option>
+            ))}
+          </select>
+        </div>
+      );
+    } else if (field.type === "select" && field.name === "assign_to") {
+      return (
+        <div key={`${field.name}-${entryId || field.name}`} className="mb-4">
+          <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
+            {field.label} {field.required && <span className="text-red-500">*</span>}
+          </label>
+          <select
+            id={`${field.name}-${entryId || field.name}`}
+            name={field.name}
+            value={value}
+            onChange={(e) => handleSingleInputChange(e)}
+            className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+            aria-required={field.required}
+          >
+            <option value="" disabled>{field.placeholder}</option>
+            {teamMembers.map((member, index) => (
+              <option key={index} value={member.value}>{member.label}</option>
+            ))}
+          </select>
         </div>
       );
     }
