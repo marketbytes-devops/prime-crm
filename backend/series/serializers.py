@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from .models import Series
+from .models import NumberSeries
 
-class SeriesSerializer(serializers.ModelSerializer):
+class NumberSeriesSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Series
-        fields = ['id', 'series_name', 'current_sequence']
+        model = NumberSeries
+        fields = ['id', 'series_name', 'prefix', 'current_sequence', 'created_at', 'updated_at']

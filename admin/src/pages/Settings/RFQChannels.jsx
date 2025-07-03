@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../../helpers/apiClient';
+import { toast } from "react-toastify";
 
 const RFQChannels = () => {
   const [channelName, setChannelName] = useState('');
@@ -44,9 +45,11 @@ const RFQChannels = () => {
       setChannels([...channels, response.data]);
       setChannelName('');
       setSuccess('Channel added successfully!');
+      toast.success("Channel added successfully!");
     } catch (err) {
       console.error('Failed to add channel:', err);
       setError(err.response?.data?.channel_name?.[0] || 'Failed to add channel.');
+      toast.error(err.response?.data?.channel_name?.[0] || 'Failed to add channel.');
     } finally {
       setLoading(false);
     }
@@ -59,64 +62,64 @@ const RFQChannels = () => {
         setChannels(channels.filter((channel) => channel.id !== channelId));
         setSuccess('Channel deleted successfully!');
         setError(null);
+        toast.success("Channel deleted successfully!");
       } catch (err) {
         console.error('Error deleting channel:', err);
         setError(err.response?.data?.detail || 'Failed to delete channel.');
+        toast.error(err.response?.data?.detail || 'Failed to delete channel.');
       }
     }
   };
 
   return (
-    <div className="mt-4 p-4 max-w-xl mx-auto bg-gray-50 min-h-screen sm:mt-14 sm:p-6 sm:max-w-4xl">
-      <h1 className="text-xl font-bold text-[#00334d] mb-4 sm:text-2xl">RFQ Channels</h1>
-      <form onSubmit={handleSubmit} className="bg-white p-4 rounded-lg shadow-md mb-6 sm:p-6">
-        <div className="mb-4">
-          <label htmlFor="channelName" className="block text-sm font-medium text-gray-700 mb-2">
-            Add Channel
-          </label>
+    <div className="container mx-auto p-4">
+      <h2 className="text-2xl font-bold mb-4 text-black">RFQ Channels</h2>
+      <form onSubmit={handleSubmit} className="mb-4">
+        <div className="flex space-x-2">
           <input
             type="text"
             id="channelName"
             value={channelName}
             onChange={handleInputChange}
             placeholder="e.g., WhatsApp, Email"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00334d] text-sm"
+            className="w-full p-2 border rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             disabled={loading}
+            required
           />
-          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-          {success && <p className="mt-2 text-sm text-green-600">{success}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className={`py-2 px-4 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors duration-200 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {loading ? 'Adding...' : 'Add'}
+          </button>
         </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className={`w-full px-4 py-2 text-sm font-medium text-white bg-[#00334d] rounded-md hover:bg-[#002a3f] focus:outline-none focus:ring-2 focus:ring-[#00334d] sm:w-auto ${
-            loading ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-        >
-          {loading ? 'Adding...' : 'Save'}
-        </button>
+        {error && <p className="text-red-600 mt-2">{error}</p>}
+        {success && <p className="text-green-600 mt-2">{success}</p>}
       </form>
-      <div className="bg-white p-4 rounded-lg shadow-md sm:p-6">
-        <h2 className="text-lg font-semibold text-[#00334d] mb-4 sm:text-xl">Existing Channels</h2>
-        {channels.length === 0 ? (
-          <p className="text-sm text-gray-500">No channels found.</p>
+      <div>
+        {loading ? (
+          <p className="text-black text-center">Loading...</p>
+        ) : error && !channels.length ? (
+          <p className="text-red-600 text-center">{error}</p>
         ) : (
-          <ul className="space-y-2">
-            {channels.map((channel) => (
-              <li
-                key={channel.id}
-                className="flex justify-between items-center text-sm text-gray-800 border-b border-gray-200 py-2"
-              >
-                <span>{channel.channel_name}</span>
-                <button
-                  onClick={() => handleDelete(channel.id)}
-                  className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"
-                  disabled={loading}
-                >
-                  Delete
-                </button>
-              </li>
-            ))}
+          <ul className="list-disc pl-5">
+            {channels.length === 0 ? (
+              <p className="text-black text-center">No channels found.</p>
+            ) : (
+              channels.map((channel) => (
+                <li key={channel.id} className="py-1 flex justify-between items-center text-black">
+                  <span>{channel.channel_name}</span>
+                  <button
+                    onClick={() => handleDelete(channel.id)}
+                    className="ml-4 py-1 px-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors duration-200"
+                    disabled={loading}
+                  >
+                    Delete
+                  </button>
+                </li>
+              ))
+            )}
           </ul>
         )}
       </div>

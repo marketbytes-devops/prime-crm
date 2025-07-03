@@ -6,7 +6,7 @@ import {
   LayoutDashboard,
   FilePlus,
   FileText,
-  Briefcase,
+  ListOrdered,
   Wrench,
   CheckCircle,
   User,
@@ -58,7 +58,7 @@ const Sidebar = ({ toggleSidebar }) => {
     {
       to: "/job-execution/initiate-work-order",
       label: "Initiate Work Order",
-      icon: <Briefcase className="w-5 h-5 mr-3" />,
+      icon: <ListOrdered className="w-5 h-5 mr-3" />,
     },
     {
       to: "/job-execution/processing-work-orders",
@@ -75,6 +75,7 @@ const Sidebar = ({ toggleSidebar }) => {
       label: "Settings",
       icon: <Settings className="w-5 h-5 mr-3" />,
       subItems: [
+        { to: "/settings/series", label: "Series", icon: <Users className="w-5 h-5 mr-3" /> },
         { to: "/settings/rfq-channel", label: "RFQ Channel", icon: <Send className="w-5 h-5 mr-3" /> },
         { to: "/settings/product", label: "Product", icon: <Archive className="w-5 h-5 mr-3" /> },
         { to: "/settings/item", label: "Item", icon: <Tag className="w-5 h-5 mr-3" /> },

@@ -15,6 +15,7 @@ const AddRFQ = () => {
   const [products, setProducts] = useState([]);
   const [units, setUnits] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
+  const [seriesList, setSeriesList] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
@@ -32,6 +33,7 @@ const AddRFQ = () => {
     attention_email: rfqData.attention_email || "",
     due_date: rfqData.due_date || "",
     assign_to: rfqData.assign_to ? String(rfqData.assign_to) : "",
+    series: rfqData.series || "",
     items: rfqData.items?.map((item, index) => ({
       id: Date.now() + index,
       item_name: item.item_name || "",
@@ -46,12 +48,13 @@ const AddRFQ = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [rfqResponse, itemsResponse, productsResponse, unitsResponse, teamResponse] = await Promise.all([
+        const [rfqResponse, itemsResponse, productsResponse, unitsResponse, teamResponse, seriesResponse] = await Promise.all([
           apiClient.get("/rfq-channels/"),
           apiClient.get("/items/"),
           apiClient.get("/products/"),
           apiClient.get("/units/"),
           apiClient.get("/teams/"),
+          apiClient.get("/series/"),
         ]);
 
         setRfqChannels(rfqResponse.data.map((channel) => channel.channel_name));
@@ -64,6 +67,7 @@ const AddRFQ = () => {
             label: `${member.name} (${member.designation})`,
           }))
         );
+        setSeriesList(seriesResponse.data); 
       } catch (err) {
         console.error("Failed to fetch data:", err);
         setError("Failed to load data.");
@@ -114,7 +118,7 @@ const AddRFQ = () => {
   };
 
   const validateSingleFields = () => {
-    const requiredFields = ["company_name", "address", "phone", "email"];
+    const requiredFields = ["company_name", "address", "phone", "email", "series"];
     for (const field of requiredFields) {
       if (!formData[field]) return `${field.replace("_", " ")} is required`;
     }
@@ -159,6 +163,7 @@ const AddRFQ = () => {
     const payload = {
       ...formData,
       assign_to: formData.assign_to ? parseInt(formData.assign_to) : null,
+      series: formData.series ? parseInt(formData.series) : null,
       items: formData.items.map((item) => ({
         item_name: item.item_name || "",
         product_name: item.product_name || "",
@@ -196,6 +201,15 @@ const AddRFQ = () => {
     { name: "attention_name", label: "Attention Name", type: "text", required: false, placeholder: "Enter Attention Name" },
     { name: "attention_phone", label: "Attention Phone", type: "text", required: false, placeholder: "Enter Attention Phone" },
     { name: "attention_email", label: "Attention Email", type: "email", required: false, placeholder: "Enter Attention Email" },
+    {
+      name: "series",
+      label: "Series",
+      type: "select",
+      required: true,
+      placeholder: "Select Series",
+      options: seriesList.map((s) => s.series_name),
+      optionValues: seriesList.map((s) => s.id),
+    },
   ];
 
   const stepTwoFields = [
@@ -213,9 +227,10 @@ const AddRFQ = () => {
 
   const renderField = (field, entryId = null) => {
     const value = entryId ? formData.items.find((e) => e.id === entryId)?.[field.name] || "" : formData[field.name] || "";
-    const options = field.name === "item_name" ? items : field.name === "product_name" ? products : field.name === "unit" ? units : field.name === "rfq_channel" ? rfqChannels : field.options || [];
+    const options = field.name === "item_name" ? items : field.name === "product_name" ? products : field.name === "unit" ? units : field.name === "rfq_channel" ? rfqChannels : field.name === "series" ? seriesList.map((s) => s.series_name) : field.options || [];
+    const optionValues = field.name === "series" ? seriesList.map((s) => s.id) : field.optionValues || options;
 
-    if (field.type === "select" && field.name !== "assign_to") {
+    if (field.type === "select") {
       return (
         <div key={`${field.name}-${entryId || field.name}`} className="mb-4 relative">
           <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
@@ -231,28 +246,7 @@ const AddRFQ = () => {
           >
             <option value="" disabled>{field.placeholder}</option>
             {options.map((option, index) => (
-              <option key={index} value={option}>{option}</option>
-            ))}
-          </select>
-        </div>
-      );
-    } else if (field.type === "select" && field.name === "assign_to") {
-      return (
-        <div key={`${field.name}-${entryId || field.name}`} className="mb-4">
-          <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
-            {field.label} {field.required && <span className="text-red-500">*</span>}
-          </label>
-          <select
-            id={`${field.name}-${entryId || field.name}`}
-            name={field.name}
-            value={value}
-            onChange={(e) => handleSingleInputChange(e)}
-            className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
-            aria-required={field.required}
-          >
-            <option value="" disabled>{field.placeholder}</option>
-            {teamMembers.map((member, index) => (
-              <option key={index} value={member.value}>{member.label}</option>
+              <option key={index} value={optionValues[index] || option}>{option}</option>
             ))}
           </select>
         </div>
@@ -296,7 +290,6 @@ const AddRFQ = () => {
           <h1 className="text-xl font-semibold text-black">Add RFQ</h1>
         </div>
       </div>
-      {/* Progress Bar */}
       <div className="mb-6">
         <div className="flex items-center justify-center space-x-4">
           <div className="flex-1">

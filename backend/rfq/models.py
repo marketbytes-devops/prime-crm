@@ -1,5 +1,6 @@
 from django.db import models
 from team.models import TeamMember
+from series.models import NumberSeries
 
 class RFQChannel(models.Model):
     channel_name = models.CharField(max_length=100, unique=True, null=True, blank=True)
@@ -42,9 +43,11 @@ class RFQ(models.Model):
         null=True,
         blank=True
     )
+    rfq_no = models.CharField(max_length=100, unique=True, blank=True, null=True)
+    series = models.ForeignKey(NumberSeries, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
-        return f"RFQ {self.company_name or 'Unnamed Company'}"
+        return f"RFQ {self.rfq_no or self.company_name or 'Unnamed Company'}"
 
 class RFQItem(models.Model):
     rfq = models.ForeignKey(RFQ, on_delete=models.CASCADE, related_name='items')

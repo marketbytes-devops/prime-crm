@@ -15,10 +15,11 @@ import ViewRFQ from "./pages/Execution/RFQ/ViewRFQ";
 import RFQChannels from "./pages/Settings/RFQChannels";
 import Product from "./pages/Settings/product";
 import Item from "./pages/Settings/items";
-import Unit from './pages/Settings/Unit';
+import Unit from "./pages/Settings/Unit";
 import ExistingClient from "./components/ExistingClient/ExistingClient";
 import Team from "./pages/Settings/Team";
 import EditRFQ from "./pages/Execution/RFQ/EditRFQ";
+import NumberSeries from "./components/NumberSeries";
 
 const ProtectedRoute = ({ children, isAuthenticated }) => {
   console.log("ProtectedRoute - isAuthenticated:", isAuthenticated);
@@ -49,7 +50,9 @@ function App() {
           />
         </ProtectedRoute>
       ),
-      errorElement: <div>Something went wrong. Please try again or contact support.</div>,
+      errorElement: (
+        <div>Something went wrong. Please try again or contact support.</div>
+      ),
       children: [
         {
           index: true,
@@ -94,6 +97,10 @@ function App() {
         {
           path: "/settings/unit",
           element: <Unit />,
+        },
+        {
+          path: "/settings/series",
+          element: <NumberSeries />,
         },
       ],
     },

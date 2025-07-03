@@ -1,9 +1,9 @@
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny
-from .models import Series
-from .serializers import SeriesSerializer
+from .models import NumberSeries
+from .serializers import NumberSeriesSerializer
 
-class SeriesViewSet(viewsets.ModelViewSet):
+class NumberSeriesViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
-    queryset = Series.objects.all()
-    serializer_class = SeriesSerializer
+    queryset = NumberSeries.objects.all()
+    serializer_class = NumberSeriesSerializer

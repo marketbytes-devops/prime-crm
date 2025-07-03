@@ -14,6 +14,7 @@ const EditRFQ = () => {
   const [products, setProducts] = useState([]);
   const [units, setUnits] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
+  const [seriesList, setSeriesList] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
@@ -30,13 +31,14 @@ const EditRFQ = () => {
 
       try {
         setLoading(true);
-        const [rfqResponse, rfqChannelsResponse, itemsResponse, productsResponse, unitsResponse, teamResponse] = await Promise.all([
+        const [rfqResponse, rfqChannelsResponse, itemsResponse, productsResponse, unitsResponse, teamResponse, seriesResponse] = await Promise.all([
           apiClient.get(`/add-rfqs/${rfqData.id}/`),
           apiClient.get("/rfq-channels/"),
           apiClient.get("/items/"),
           apiClient.get("/products/"),
           apiClient.get("/units/"),
           apiClient.get("/teams/"),
+          apiClient.get("/series/"), 
         ]);
 
         const fetchedItems = rfqResponse.data.items?.map((item, index) => ({
@@ -64,7 +66,8 @@ const EditRFQ = () => {
           attention_email: rfqResponse.data.attention_email || "",
           due_date: rfqResponse.data.due_date || "",
           assign_to: rfqResponse.data.assign_to ? String(rfqResponse.data.assign_to) : "",
-          rfq_no: rfqResponse.data.rfq_no || `RFQ-${String(rfqResponse.data.id).padStart(3, "0")}`,
+          rfq_no: rfqResponse.data.rfq_no || "",
+          series: rfqResponse.data.series || "",
           current_status: rfqResponse.data.current_status || "Processing",
           items: fetchedItems,
         });
@@ -79,6 +82,7 @@ const EditRFQ = () => {
             label: `${member.name} (${member.designation})`,
           }))
         );
+        setSeriesList(seriesResponse.data);
         setEntryFieldTypes(initialFieldTypes);
 
         const dueDate = new Date(rfqResponse.data.due_date);
@@ -103,7 +107,7 @@ const EditRFQ = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     setActiveDropdown(null);
     if (name === "current_status" && value === "Completed") {
-      setIsPastDue(false); 
+      setIsPastDue(false);
     }
   };
 
@@ -157,7 +161,7 @@ const EditRFQ = () => {
   };
 
   const validateSingleFields = () => {
-    const requiredFields = ["company_name", "address", "phone", "email", "due_date", "assign_to", "current_status"];
+    const requiredFields = ["company_name", "address", "phone", "email", "due_date", "assign_to", "current_status", "series"];
     for (const field of requiredFields) {
       if (!formData[field]) return `${field.replace("_", " ")} is required`;
     }
@@ -197,6 +201,7 @@ const EditRFQ = () => {
     const payload = {
       ...formData,
       assign_to: formData.assign_to ? parseInt(formData.assign_to) : null,
+      series: formData.series ? parseInt(formData.series) : null,
       items: formData.items.map((item) => ({
         id: item.id,
         item_name: item.item_name || "",
@@ -251,6 +256,15 @@ const EditRFQ = () => {
       placeholder: "Select Status",
       options: ["Processing", "Completed"],
     },
+    {
+      name: "series",
+      label: "Series",
+      type: "select",
+      required: true,
+      placeholder: "Select Series",
+      options: seriesList.map((s) => s.series_name),
+      optionValues: seriesList.map((s) => s.id),
+    },
   ];
 
   const repeatableFields = [
@@ -290,7 +304,8 @@ const EditRFQ = () => {
 
   const renderField = (field, entryId = null) => {
     const value = entryId ? formData.items.find((e) => e.id === entryId)?.[field.name] || "" : formData[field.name] || "";
-    const options = field.name === "item_name" ? items : field.name === "product_name" ? products : field.name === "unit" ? units : field.name === "rfq_channel" ? rfqChannels : field.name === "assign_to" ? teamMembers.map((m) => m.label) : field.name === "current_status" ? field.options : field.options || [];
+    const options = field.name === "item_name" ? items : field.name === "product_name" ? products : field.name === "unit" ? units : field.name === "rfq_channel" ? rfqChannels : field.name === "assign_to" ? teamMembers.map((m) => m.label) : field.name === "series" ? seriesList.map((s) => s.series_name) : field.options || [];
+    const optionValues = field.name === "series" ? seriesList.map((s) => s.id) : field.name === "assign_to" ? teamMembers.map((m) => m.value) : field.options || [];
 
     if (field.type === "select") {
       return (
@@ -308,7 +323,7 @@ const EditRFQ = () => {
           >
             <option value="" disabled>{field.placeholder}</option>
             {options.map((option, index) => (
-              <option key={index} value={field.name === "assign_to" ? teamMembers[index]?.value : option}>{option}</option>
+              <option key={index} value={optionValues[index] || option}>{option}</option>
             ))}
           </select>
         </div>
