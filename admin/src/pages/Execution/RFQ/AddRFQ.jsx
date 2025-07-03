@@ -3,7 +3,7 @@ import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { Plus, Trash, ArrowRight } from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "../../../helpers/apiClient";
-import ClientSelectionModal from "../../../components/ClientSelectionModal.jsx";
+import ClientSelectionModal from "../../../components/ClientSelectionModal";
 
 const AddRFQ = () => {
   const location = useLocation();
