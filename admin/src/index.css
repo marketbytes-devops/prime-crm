@@ -8,3 +8,9 @@ body {
   font-family: "Montserrat", sans-serif;
   font-optical-sizing: auto;
 }
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
