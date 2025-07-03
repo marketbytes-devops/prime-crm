@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation, useParams } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Plus, Trash, ArrowRight } from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "../../../helpers/apiClient";
@@ -8,19 +8,14 @@ import ClientSelectionModal from "../../../components/ClientSelectionModal";
 const AddRFQ = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { id } = useParams();
   const { rfqData = {}, isEditing = false } = location.state || {};
-  const [showClientModal, setShowClientModal] = useState(!rfqData.company_name && !isEditing && !id);
+  const [showClientModal, setShowClientModal] = useState(!rfqData.company_name && !isEditing);
   const [rfqChannels, setRfqChannels] = useState([]);
   const [items, setItems] = useState([]);
   const [products, setProducts] = useState([]);
   const [units, setUnits] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [itemsLoading, setItemsLoading] = useState(false);
-  const [productsLoading, setProductsLoading] = useState(false);
-  const [unitsLoading, setUnitsLoading] = useState(false);
-  const [teamMembersLoading, setTeamMembersLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [includeItems, setIncludeItems] = useState(rfqData.items?.some((item) => item.item_name) || false);
@@ -46,158 +41,67 @@ const AddRFQ = () => {
     })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null);
 
   useEffect(() => {
-    const fetchRfqChannels = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get("/rfq-channels/");
-        setRfqChannels(response.data.map((channel) => channel.channel_name));
-      } catch (err) {
-        console.error("Failed to fetch RFQ channels:", err.response || err.message);
-        setError("Failed to load RFQ channels.");
-        setRfqChannels([]);
-      }
-    };
+        const [rfqResponse, itemsResponse, productsResponse, unitsResponse, teamResponse] = await Promise.all([
+          apiClient.get("/rfq-channels/"),
+          apiClient.get("/items/"),
+          apiClient.get("/products/"),
+          apiClient.get("/units/"),
+          apiClient.get("/teams/"),
+        ]);
 
-    const fetchItems = async () => {
-      try {
-        setItemsLoading(true);
-        const response = await apiClient.get("/items/");
-        setItems(response.data.map((item) => item.name));
-      } catch (err) {
-        console.error("Failed to fetch items:", err.response || err.message);
-        setError("Failed to load items.");
-        setItems([]);
-      } finally {
-        setItemsLoading(false);
-      }
-    };
-
-    const fetchProducts = async () => {
-      try {
-        setProductsLoading(true);
-        const response = await apiClient.get("/products/");
-        setProducts(response.data.map((product) => product.name));
-      } catch (err) {
-        console.error("Failed to fetch products:", err.response || err.message);
-        setError("Failed to load products.");
-        setProducts([]);
-      } finally {
-        setProductsLoading(false);
-      }
-    };
-
-    const fetchUnits = async () => {
-      try {
-        setUnitsLoading(true);
-        const response = await apiClient.get("/units/");
-        setUnits(response.data.map((unit) => unit.name));
-      } catch (err) {
-        console.error("Failed to fetch units:", err.response || err.message);
-        setError("Failed to load units.");
-        setUnits([]);
-      } finally {
-        setUnitsLoading(false);
-      }
-    };
-
-    const fetchTeamMembers = async () => {
-      try {
-        setTeamMembersLoading(true);
-        const response = await apiClient.get("/teams/");
-        if (response.data.length === 0) {
-          setError("No team members available. Please add team members first.");
-        }
+        setRfqChannels(rfqResponse.data.map((channel) => channel.channel_name));
+        setItems(rfqResponse.data.map((item) => item.name));
+        setProducts(productsResponse.data.map((product) => product.name));
+        setUnits(unitsResponse.data.map((unit) => unit.name));
         setTeamMembers(
-          response.data.map((member) => ({
+          teamResponse.data.map((member) => ({
             value: member.id,
             label: `${member.name} (${member.designation})`,
-            email: member.email,
           }))
         );
       } catch (err) {
-        console.error("Failed to fetch team members:", err.response || err.message);
-        setError("Failed to load team members.");
-        setTeamMembers([]);
+        console.error("Failed to fetch data:", err);
+        setError("Failed to load data.");
       } finally {
-        setTeamMembersLoading(false);
+        setLoading(false);
       }
     };
 
-    const fetchRfqData = async () => {
-      if (id && !rfqData.id) {
-        try {
-          const response = await apiClient.get(`/add-rfqs/${id}/`);
-          const data = {
-            company_name: response.data.company_name || "",
-            reference: response.data.reference || "",
-            address: response.data.address || "",
-            phone: response.data.phone || "",
-            email: response.data.email || "",
-            rfq_channel: response.data.rfq_channel || "",
-            attention_name: response.data.attention_name || "",
-            attention_phone: response.data.attention_phone || "",
-            attention_email: response.data.attention_email || "",
-            due_date: response.data.due_date || "",
-            assign_to: response.data.assign_to ? String(response.data.assign_to) : "",
-            items: response.data.items?.map((item, index) => ({
-              id: Date.now() + index,
-              item_name: item.item_name || "",
-              product_name: item.product_name || "",
-              quantity: item.quantity || "",
-              unit: item.unit || "",
-            })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }],
-          };
-          setFormData(data);
-          setIncludeItems(data.items.some((item) => item.item_name));
-          setIncludeProducts(data.items.some((item) => item.product_name));
-        } catch (err) {
-          console.error("Failed to fetch RFQ data:", err.response || err.message);
-          setError("Failed to load RFQ data.");
-        }
-      }
-    };
-
-    Promise.all([
-      fetchRfqChannels(),
-      fetchItems(),
-      fetchProducts(),
-      fetchUnits(),
-      fetchTeamMembers(),
-      fetchRfqData(),
-    ]).finally(() => {
-      setLoading(false);
-    });
-  }, [id, rfqData.id]);
+    fetchData();
+  }, []);
 
   const handleClientSelect = (type) => {
     setShowClientModal(false);
-    if (type === "existing") {
-      navigate("/pre-job/existing-client");
-    }
+    if (type === "existing") navigate("/pre-job/existing-client");
   };
 
   const handleInputChange = (e, entryId) => {
     const { name, value } = e.target;
-    setFormData((prev) => {
-      const newItems = prev.items.map((item) =>
+    setFormData((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
         item.id === entryId ? { ...item, [name]: value } : item
-      );
-      return { ...prev, items: newItems };
-    });
+      ),
+    }));
+    setActiveDropdown(null);
   };
 
   const handleSingleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setActiveDropdown(null);
   };
 
   const addFormBlock = () => {
-    const newId = Date.now();
     setFormData((prev) => ({
       ...prev,
-      items: [...prev.items, { id: newId, item_name: "", product_name: "", quantity: "", unit: "" }],
+      items: [...prev.items, { id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }],
     }));
   };
 
@@ -213,36 +117,19 @@ const AddRFQ = () => {
   };
 
   const validateSingleFields = () => {
-    const fields = [
-      { name: "company_name", label: "Company Name", required: true },
-      { name: "address", label: "Address", required: true },
-      { name: "phone", label: "Phone", required: true },
-      { name: "email", label: "Email", required: true },
-    ];
-    for (const field of fields) {
-      if (field.required && !formData[field.name]) {
-        return `${field.label} is required`;
-      }
+    const requiredFields = ["company_name", "address", "phone", "email"];
+    for (const field of requiredFields) {
+      if (!formData[field]) return `${field.replace("_", " ")} is required`;
     }
     return null;
   };
 
   const validateEntry = (entry) => {
-    if (includeItems && !entry.item_name) {
-      return "Item is required";
-    }
-    if (includeProducts && !entry.product_name) {
-      return "Product is required";
-    }
-    if (!entry.quantity) {
-      return "Quantity is required";
-    }
-    if (parseFloat(entry.quantity) < 1) {
-      return "Quantity must be at least 1";
-    }
-    if (!entry.unit) {
-      return "Unit is required";
-    }
+    if (includeItems && !entry.item_name) return "Item is required";
+    if (includeProducts && !entry.product_name) return "Product is required";
+    if (!entry.quantity) return "Quantity is required";
+    if (parseFloat(entry.quantity) < 1) return "Quantity must be at least 1";
+    if (!entry.unit) return "Unit is required";
     return null;
   };
 
@@ -272,115 +159,50 @@ const AddRFQ = () => {
       return;
     }
 
-    const combinedData = {
+    const payload = {
       ...formData,
       assign_to: formData.assign_to ? parseInt(formData.assign_to) : null,
       items: formData.items.map((item) => ({
         item_name: item.item_name || "",
         product_name: item.product_name || "",
-        quantity: item.quantity || "",
+        quantity: parseFloat(item.quantity) || 0,
         unit: item.unit || "",
       })),
     };
 
     try {
-      if (isEditing && id) {
-        await apiClient.put(`/add-rfqs/${id}/`, combinedData);
-        toast.success("RFQ updated successfully!");
-      } else {
-        await apiClient.post("/add-rfqs/", combinedData);
-        toast.success("RFQ created successfully!");
-      }
+      await apiClient.post("/add-rfqs/", payload);
+      toast.success("RFQ created successfully!");
       navigate("/pre-job/view-rfq");
     } catch (error) {
       console.error("Error submitting RFQ:", error.response?.data || error.message);
-      toast.error(
-        `Failed to save RFQ: ${
-          error.response?.data?.message || "Please check the required fields."
-        }`
-      );
+      toast.error("Failed to save RFQ. Please check the required fields.");
+    } finally {
       setIsSubmitting(false);
     }
   };
 
   const companyFields = [
-    {
-      name: "company_name",
-      label: "Company Name",
-      type: "text",
-      required: true,
-      placeholder: "Enter Company Name",
-    },
-    {
-      name: "reference",
-      label: "Reference",
-      type: "text",
-      required: false,
-      placeholder: "Enter Reference",
-    },
-    {
-      name: "address",
-      label: "Address",
-      type: "text",
-      required: true,
-      placeholder: "Enter Address",
-    },
-    {
-      name: "phone",
-      label: "Phone",
-      type: "text",
-      required: true,
-      placeholder: "Enter Phone Number",
-    },
-    {
-      name: "email",
-      label: "Email",
-      type: "email",
-      required: true,
-      placeholder: "Enter Email",
-    },
+    { name: "company_name", label: "Company Name", type: "text", required: true, placeholder: "Enter Company Name" },
+    { name: "reference", label: "Reference", type: "text", required: false, placeholder: "Enter Reference" },
+    { name: "address", label: "Address", type: "text", required: true, placeholder: "Enter Address" },
+    { name: "phone", label: "Phone", type: "text", required: true, placeholder: "Enter Phone Number" },
+    { name: "email", label: "Email", type: "email", required: true, placeholder: "Enter Email" },
     {
       name: "rfq_channel",
       label: "RFQ Channel",
       type: "select",
       required: false,
-      options: rfqChannels,
       placeholder: "Select RFQ Channel",
+      options: rfqChannels,
     },
-  ];
-
-  const attentionFields = [
-    {
-      name: "attention_name",
-      label: "Attention Name",
-      type: "text",
-      required: false,
-      placeholder: "Enter Attention Name",
-    },
-    {
-      name: "attention_phone",
-      label: "Attention Phone",
-      type: "text",
-      required: false,
-      placeholder: "Enter Attention Phone",
-    },
-    {
-      name: "attention_email",
-      label: "Attention Email",
-      type: "email",
-      required: false,
-      placeholder: "Enter Attention Email",
-    },
+    { name: "attention_name", label: "Attention Name", type: "text", required: false, placeholder: "Enter Attention Name" },
+    { name: "attention_phone", label: "Attention Phone", type: "text", required: false, placeholder: "Enter Attention Phone" },
+    { name: "attention_email", label: "Attention Email", type: "email", required: false, placeholder: "Enter Attention Email" },
   ];
 
   const stepTwoFields = [
-    {
-      name: "due_date",
-      label: "Due Date",
-      type: "date",
-      required: false,
-      placeholder: "Select Due Date",
-    },
+    { name: "due_date", label: "Due Date", type: "date", required: false, placeholder: "Select Due Date"},
     {
       name: "assign_to",
       label: "Assign To",
@@ -392,117 +214,60 @@ const AddRFQ = () => {
     },
   ];
 
-  const renderSingleField = (field) => {
-    const value = formData[field.name] || "";
-    if (field.type === "select") {
-      return (
-        <div key={field.name} className="mb-4">
-          <label
-            htmlFor={field.name}
-            className="block text-xs font-medium text-gray-800 mb-1"
-          >
-            {field.label} {field.required && <span className="text-red-500">*</span>}
-          </label>
-          <select
-            id={field.name}
-            name={field.name}
-            value={value}
-            onChange={handleSingleInputChange}
-            disabled={false}
-            className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
-            aria-required={field.required}
-          >
-            <option value="" disabled>
-              {field.placeholder}
-            </option>
-            {field.options.map((option, index) => (
-              <option
-                key={option}
-                value={field.optionValues ? field.optionValues[index] : option}
-              >
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
-      );
-    }
-    return (
-      <div key={field.name} className="mb-4">
-        <label
-          htmlFor={field.name}
-          className="block text-xs font-medium text-gray-800 mb-1"
-        >
-          {field.label} {field.required && <span className="text-red-500">*</span>}
-        </label>
-        <input
-          id={field.name}
-          type={field.type}
-          name={field.name}
-          value={value}
-          onChange={handleSingleInputChange}
-          placeholder={field.placeholder}
-          disabled={false}
-          className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
-          aria-required={field.required}
-        />
-      </div>
-    );
-  };
+  const renderField = (field, entryId = null) => {
+    const value = entryId ? formData.items.find((e) => e.id === entryId)?.[field.name] || "" : formData[field.name] || "";
+    const options = field.name === "item_name" ? items : field.name === "product_name" ? products : field.name === "unit" ? units : field.name === "assign_to" ? teamMembers.map((m) => m.label) : field.options || [];
 
-  const renderEntryField = (field, entryId) => {
-    const entry = formData.items.find((e) => e.id === entryId);
-    const value = entry[field.name] || "";
     if (field.type === "select") {
       return (
-        <div key={field.name} className="mb-4">
-          <label
-            htmlFor={`${field.name}-${entryId}`}
-            className="block text-xs font-medium text-gray-800 mb-1"
-          >
+        <div key={`${field.name}-${entryId || field.name}`} className="mb-4 relative">
+          <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-gray-800 mb-1">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
-          <select
-            id={`${field.name}-${entryId}`}
+          <input
+            type="text"
+            id={`${field.name}-${entryId || field.name}`}
             name={field.name}
             value={value}
-            onChange={(e) => handleInputChange(e, entryId)}
-            disabled={false}
+            onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
+            onFocus={() => setActiveDropdown(`${field.name}-${entryId || field.name}`)}
+            placeholder={field.placeholder}
             className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
-          >
-            <option value="" disabled>
-              {field.placeholder}
-            </option>
-            {field.options.map((option, index) => (
-              <option
-                key={option}
-                value={field.optionValues ? field.optionValues[index] : option}
-              >
-                {option}
-              </option>
-            ))}
-          </select>
+          />
+          {activeDropdown === `${field.name}-${entryId || field.name}` && value && options.length > 0 && (
+            <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
+              {options.map((option, index) => (
+                <li
+                  key={index}
+                  className="p-2 hover:bg-gray-100 cursor-pointer"
+                  onClick={() => {
+                    const event = { target: { name: field.name, value: field.name === "assign_to" ? teamMembers[index].value : option } };
+                    entryId ? handleInputChange(event, entryId) : handleSingleInputChange(event);
+                    setActiveDropdown(null);
+                  }}
+                >
+                  {option}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       );
     }
     return (
-      <div key={field.name} className="mb-4">
-        <label
-          htmlFor={`${field.name}-${entryId}`}
-          className="block text-xs font-medium text-gray-800 mb-1"
-        >
+      <div key={`${field.name}-${entryId || field.name}`} className="mb-4">
+        <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-gray-800 mb-1">
           {field.label} {field.required && <span className="text-red-500">*</span>}
         </label>
         <input
-          id={`${field.name}-${entryId}`}
+          id={`${field.name}-${entryId || field.name}`}
           type={field.type}
           name={field.name}
           value={value}
-          onChange={(e) => handleInputChange(e, entryId)}
+          onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
           placeholder={field.placeholder}
           min={field.min}
-          disabled={false}
           className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
           aria-required={field.required}
         />
@@ -510,59 +275,35 @@ const AddRFQ = () => {
     );
   };
 
-  if (loading || itemsLoading || productsLoading || unitsLoading || teamMembersLoading) {
-    return <p className="text-gray-600 text-center">Loading data...</p>;
-  }
-  if (error) {
-    return <p className="text-red-600 text-center">{error}</p>;
-  }
+  if (loading) return <p className="text-gray-600 text-center">Loading data...</p>;
+  if (error) return <p className="text-red-600 text-center">{error}</p>;
 
   return (
     <div className="container mx-auto p-6 bg-gray-50 min-h-screen">
       {showClientModal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          <ClientSelectionModal
-            onClose={() => setShowClientModal(false)}
-            onSelect={handleClientSelect}
-          />
-        </div>
+        <ClientSelectionModal onClose={() => setShowClientModal(false)} onSelect={handleClientSelect} />
       )}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center">
-          <button
-            onClick={() => navigate("/pre-job/view-rfq")}
-            className="text-gray-500 hover:text-gray-700 mr-4"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
+          <button onClick={() => navigate("/pre-job/view-rfq")} className="text-gray-500 hover:text-gray-700 mr-4">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <h1 className="text-2xl font-semibold text-gray-800">
-            {isEditing ? "Edit RFQ" : "Add RFQ"}
-          </h1>
+          <h1 className="text-2xl font-semibold text-gray-800">Add RFQ</h1>
         </div>
       </div>
       <div className="mx-auto p-6 bg-white rounded-lg shadow-md">
         <form onSubmit={handleSubmit} className="mb-6">
           {currentStep === 1 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[...companyFields, ...attentionFields].map((field) => renderSingleField(field))}
+              {companyFields.map((field) => renderField(field))}
             </div>
           )}
           {currentStep === 2 && (
             <>
               <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                {stepTwoFields.map((field) => renderSingleField(field))}
+                {stepTwoFields.map((field) => renderField(field))}
               </div>
               <div className="mb-6">
                 <label className="mr-4">
@@ -591,29 +332,27 @@ const AddRFQ = () => {
                       key={entry.id}
                       className="mb-4 p-4 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4"
                     >
-                      {includeItems && renderEntryField(
+                      {includeItems && renderField(
                         {
                           name: "item_name",
                           label: "Item",
                           type: "select",
                           required: true,
-                          placeholder: "Select Item",
-                          options: items,
+                          placeholder: "Select or Enter Item",
                         },
                         entry.id
                       )}
-                      {includeProducts && renderEntryField(
+                      {includeProducts && renderField(
                         {
                           name: "product_name",
                           label: "Product",
                           type: "select",
                           required: true,
-                          placeholder: "Select Product",
-                          options: products,
+                          placeholder: "Select or Enter Product",
                         },
                         entry.id
                       )}
-                      {renderEntryField(
+                      {renderField(
                         {
                           name: "quantity",
                           label: "Quantity",
@@ -624,14 +363,13 @@ const AddRFQ = () => {
                         },
                         entry.id
                       )}
-                      {renderEntryField(
+                      {renderField(
                         {
                           name: "unit",
                           label: "Unit",
                           type: "select",
                           required: true,
-                          placeholder: "Select Unit",
-                          options: units,
+                          placeholder: "Select or Enter Unit",
                         },
                         entry.id
                       )}

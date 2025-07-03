@@ -1,107 +1,208 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import CRMManager from "../../../components/CRMManager"; // Adjust path as needed
-import apiClient from "../../../helpers/apiClient";
+import { Plus, Trash } from "lucide-react";
 import { toast } from "react-toastify";
+import apiClient from "../../../helpers/apiClient";
 
 const EditRFQ = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { rfqData, isEditing } = location.state || {};
-
   const [formData, setFormData] = useState(null);
+  const [rfqChannels, setRfqChannels] = useState([]);
+  const [items, setItems] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [units, setUnits] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
 
-  // Define fields for CRMManager
-  const singleFields = [
-    {
-      name: "company_name",
-      label: "Company Name",
-      type: "text",
-      required: true,
-      placeholder: "Enter Company Name",
-    },
-    {
-      name: "reference",
-      label: "Reference",
-      type: "text",
-      required: false,
-      placeholder: "Enter Reference",
-    },
-    {
-      name: "address",
-      label: "Address",
-      type: "text",
-      required: true,
-      placeholder: "Enter Address",
-    },
-    {
-      name: "phone",
-      label: "Phone",
-      type: "text",
-      required: true,
-      placeholder: "Enter Phone Number",
-    },
-    {
-      name: "email",
-      label: "Email",
-      type: "email",
-      required: true,
-      placeholder: "Enter Email",
-    },
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!rfqData || !rfqData.id || !isEditing) {
+        setError("No RFQ data provided for editing or missing RFQ ID.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const [rfqResponse, rfqChannelsResponse, itemsResponse, productsResponse, unitsResponse, teamResponse] = await Promise.all([
+          apiClient.get(`/add-rfqs/${rfqData.id}/`),
+          apiClient.get("/rfq-channels/"),
+          apiClient.get("/items/"),
+          apiClient.get("/products/"),
+          apiClient.get("/units/"),
+          apiClient.get("/teams/"),
+        ]);
+
+        setFormData({
+          company_name: rfqResponse.data.company_name || "",
+          reference: rfqResponse.data.reference || "",
+          address: rfqResponse.data.address || "",
+          phone: rfqResponse.data.phone || "",
+          email: rfqResponse.data.email || "",
+          rfq_channel: rfqResponse.data.rfq_channel || "",
+          attention_name: rfqResponse.data.attention_name || "",
+          attention_phone: rfqResponse.data.attention_phone || "",
+          attention_email: rfqResponse.data.attention_email || "",
+          due_date: rfqResponse.data.due_date || "",
+          assign_to: rfqResponse.data.assign_to ? String(rfqResponse.data.assign_to) : "",
+          assign_to_designation: rfqResponse.data.assign_to_designation || "",
+          rfq_no: rfqResponse.data.rfq_no || `RFQ-${String(rfqResponse.data.id).padStart(3, "0")}`,
+          items: rfqResponse.data.items?.map((item, index) => ({
+            id: item.id || Date.now() + index,
+            item_name: item.item_name || "",
+            product_name: item.product_name || "",
+            quantity: String(item.quantity) || "",
+            unit: item.unit || "",
+          })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }],
+        });
+
+        setRfqChannels(rfqChannelsResponse.data.map((channel) => channel.channel_name));
+        setItems(itemsResponse.data.map((item) => item.name));
+        setProducts(productsResponse.data.map((product) => product.name));
+        setUnits(unitsResponse.data.map((unit) => unit.name));
+        setTeamMembers(
+          teamResponse.data.map((member) => ({
+            value: member.id,
+            label: `${member.name} (${member.designation})`,
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to fetch RFQ data:", err);
+        setError("Failed to load RFQ data.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [rfqData, isEditing]);
+
+  const handleSingleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setActiveDropdown(null);
+  };
+
+  const handleInputChange = (e, entryId) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.id === entryId ? { ...item, [name]: value } : item
+      ),
+    }));
+    setActiveDropdown(null);
+  };
+
+  const addFormBlock = () => {
+    setFormData((prev) => ({
+      ...prev,
+      items: [...prev.items, { id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }],
+    }));
+  };
+
+  const removeFormBlock = (entryId) => {
+    if (formData.items.length === 1) {
+      toast.error("At least one entry is required");
+      return;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      items: prev.items.filter((item) => item.id !== entryId),
+    }));
+  };
+
+  const validateSingleFields = () => {
+    const requiredFields = ["company_name", "address", "phone", "email", "due_date", "assign_to"];
+    for (const field of requiredFields) {
+      if (!formData[field]) return `${field.replace("_", " ")} is required`;
+    }
+    return null;
+  };
+
+  const validateEntry = (entry) => {
+    if (!entry.item_name && !entry.product_name) return "Item or Product is required";
+    if (!entry.quantity) return "Quantity is required";
+    if (parseFloat(entry.quantity) < 1) return "Quantity must be at least 1";
+    if (!entry.unit) return "Unit is required";
+    return null;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData || !rfqData.id) {
+      toast.error("Invalid RFQ data or ID.");
+      return;
+    }
+
+    const singleValidationError = validateSingleFields();
+    if (singleValidationError) {
+      toast.error(singleValidationError);
+      return;
+    }
+
+    for (const entry of formData.items) {
+      const validationError = validateEntry(entry);
+      if (validationError) {
+        toast.error(validationError);
+        return;
+      }
+    }
+
+    const payload = {
+      ...formData,
+      assign_to: formData.assign_to ? parseInt(formData.assign_to) : null,
+      items: formData.items.map((item) => ({
+        id: item.id,
+        item_name: item.item_name || "",
+        product_name: item.product_name || "",
+        quantity: parseFloat(item.quantity) || 0,
+        unit: item.unit || "",
+      })),
+    };
+
+    try {
+      await apiClient.put(`/add-rfqs/${rfqData.id}/`, payload);
+      toast.success("RFQ updated successfully!");
+      navigate("/pre-job/view-rfq", { state: { refresh: true } });
+    } catch (error) {
+      console.error("Error updating RFQ:", error.response?.data || error.message);
+      toast.error("Failed to update RFQ. Please check the required fields.");
+    }
+  };
+
+  const fields = [
+    { name: "company_name", label: "Company Name", type: "text", required: true, placeholder: "Enter Company Name" },
+    { name: "reference", label: "Reference", type: "text", required: false, placeholder: "Enter Reference" },
+    { name: "address", label: "Address", type: "text", required: true, placeholder: "Enter Address" },
+    { name: "phone", label: "Phone", type: "text", required: true, placeholder: "Enter Phone Number" },
+    { name: "email", label: "Email", type: "email", required: true, placeholder: "Enter Email" },
     {
       name: "rfq_channel",
       label: "RFQ Channel",
-      type: "text",
+      type: "select",
       required: false,
-      placeholder: "Enter RFQ Channel",
+      placeholder: "Select or Enter RFQ Channel",
+      options: rfqChannels,
     },
-    {
-      name: "attention_name",
-      label: "Attention Name",
-      type: "text",
-      required: false,
-      placeholder: "Enter Attention Name",
-    },
-    {
-      name: "attention_phone",
-      label: "Attention Phone",
-      type: "text",
-      required: false,
-      placeholder: "Enter Attention Phone",
-    },
-    {
-      name: "attention_email",
-      label: "Attention Email",
-      type: "email",
-      required: false,
-      placeholder: "Enter Attention Email",
-    },
-    {
-      name: "due_date",
-      label: "Due Date",
-      type: "date",
-      required: true,
-      placeholder: "Select Due Date",
-    },
+    { name: "attention_name", label: "Attention Name", type: "text", required: false, placeholder: "Enter Attention Name" },
+    { name: "attention_phone", label: "Attention Phone", type: "text", required: false, placeholder: "Enter Attention Phone" },
+    { name: "attention_email", label: "Attention Email", type: "email", required: false, placeholder: "Enter Attention Email" },
+    { name: "due_date", label: "Due Date", type: "date", required: true, placeholder: "Select Due Date" },
     {
       name: "assign_to",
       label: "Assigned To",
       type: "select",
       required: true,
       placeholder: "Select Team Member",
-      searchEndpoint: "/teams/",
-      optionLabel: "name",
-      optionValue: "id",
+      options: teamMembers.map((member) => member.label),
+      optionValues: teamMembers.map((member) => member.value),
     },
-    {
-      name: "assign_to_designation",
-      label: "Designation",
-      type: "text",
-      required: false,
-      placeholder: "Enter Designation",
-    },
+    { name: "assign_to_designation", label: "Designation", type: "text", required: false, placeholder: "Enter Designation" },
   ];
 
   const repeatableFields = [
@@ -110,20 +211,16 @@ const EditRFQ = () => {
       label: "Item",
       type: "select",
       required: true,
-      placeholder: "Select Item",
-      searchEndpoint: "/items/",
-      optionLabel: "name",
-      optionValue: "name",
+      placeholder: "Select or Enter Item",
+      options: items,
     },
     {
       name: "product_name",
       label: "Product",
       type: "select",
       required: true,
-      placeholder: "Select Product",
-      searchEndpoint: "/products/",
-      optionLabel: "name",
-      optionValue: "name",
+      placeholder: "Select or Enter Product",
+      options: products,
     },
     {
       name: "quantity",
@@ -138,214 +235,129 @@ const EditRFQ = () => {
       label: "Unit",
       type: "select",
       required: true,
-      placeholder: "Select Unit",
-      searchEndpoint: "/units/",
-      optionLabel: "name",
-      optionValue: "name",
+      placeholder: "Select or Enter Unit",
+      options: units,
     },
   ];
 
-  useEffect(() => {
-    console.log("location.state:", JSON.stringify(location.state, null, 2)); // Debug: Log location.state
+  const renderField = (field, entryId = null) => {
+    const value = entryId ? formData.items.find((e) => e.id === entryId)?.[field.name] || "" : formData[field.name] || "";
+    const options = field.name === "item_name" ? items : field.name === "product_name" ? products : field.name === "unit" ? units : field.name === "rfq_channel" ? rfqChannels : field.name === "assign_to" ? teamMembers.map((m) => m.label) : field.options || [];
 
-    const fetchRfqData = async () => {
-      if (!rfqData || !rfqData.id || !isEditing) {
-        console.error("Missing rfqData or rfqData.id:", { rfqData, isEditing });
-        setError("No RFQ data provided for editing or missing RFQ ID.");
-        setLoading(false);
-        return;
-      }
-
-      try {
-        console.log(`Fetching RFQ data for ID: ${rfqData.id}`); // Debug: Log RFQ ID
-        const response = await apiClient.get(`/add-rfqs/${rfqData.id}/`);
-        const fetchedData = response.data;
-        console.log("Fetched RFQ data:", JSON.stringify(fetchedData, null, 2)); // Debug: Log fetched data
-        setFormData({
-          company_name: fetchedData.company_name || "",
-          reference: fetchedData.reference || "",
-          address: fetchedData.address || "",
-          phone: fetchedData.phone || "",
-          email: fetchedData.email || "",
-          rfq_channel: fetchedData.rfq_channel || "",
-          attention_name: fetchedData.attention_name || "",
-          attention_phone: fetchedData.attention_phone || "",
-          attention_email: fetchedData.attention_email || "",
-          due_date: fetchedData.due_date || "",
-          assign_to: fetchedData.assign_to ? String(fetchedData.assign_to) : "",
-          assign_to_designation: fetchedData.assign_to_designation || "",
-          rfq_no: fetchedData.rfq_no || `RFQ-${String(fetchedData.id).padStart(3, "0")}`,
-          items: fetchedData.items?.map((item, index) => ({
-            id: item.id || Date.now() + index, // Use backend ID if available
-            item_name: item.item_name || "",
-            product_name: item.product_name || "",
-            quantity: String(item.quantity) || "", // Convert to string for input
-            unit: item.unit || "",
-          })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }],
-        });
-        setLoading(false);
-      } catch (err) {
-        console.error("Failed to fetch RFQ data:", {
-          message: err.message,
-          response: err.response?.data,
-          status: err.response?.status,
-        });
-        setError("Failed to load RFQ data. Please try again.");
-        setLoading(false);
-      }
-    };
-
-    fetchRfqData();
-  }, [rfqData, isEditing]);
-
-  const handleSingleInputChange = (e) => {
-    const { name, value } = e.target;
-    console.log(`Updating single field: ${name} = ${value}`); // Debug: Log single field changes
-    setFormData((prev) => {
-      const newData = { ...prev, [name]: value };
-      console.log("Updated formData (single):", JSON.stringify(newData, null, 2)); // Debug: Log updated formData
-      return newData;
-    });
+    if (field.type === "select") {
+      return (
+        <div key={`${field.name}-${entryId || field.name}`} className="mb-4 relative">
+          <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-gray-800 mb-1">
+            {field.label} {field.required && <span className="text-red-500">*</span>}
+          </label>
+          <input
+            type="text"
+            id={`${field.name}-${entryId || field.name}`}
+            name={field.name}
+            value={value}
+            onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
+            onFocus={() => setActiveDropdown(`${field.name}-${entryId || field.name}`)}
+            placeholder={field.placeholder}
+            className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+            aria-required={field.required}
+          />
+          {activeDropdown === `${field.name}-${entryId || field.name}` && options.length > 0 && (
+            <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
+              {options.map((option, index) => (
+                <li
+                  key={index}
+                  className="p-2 hover:bg-gray-100 cursor-pointer"
+                  onClick={() => {
+                    const event = { target: { name: field.name, value: field.name === "assign_to" ? teamMembers[index].value : option } };
+                    entryId ? handleInputChange(event, entryId) : handleSingleInputChange(event);
+                    setActiveDropdown(null);
+                  }}
+                >
+                  {option}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    }
+    return (
+      <div key={`${field.name}-${entryId || field.name}`} className="mb-4">
+        <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-gray-800 mb-1">
+          {field.label} {field.required && <span className="text-red-500">*</span>}
+        </label>
+        <input
+          id={`${field.name}-${entryId || field.name}`}
+          type={field.type}
+          name={field.name}
+          value={value}
+          onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
+          placeholder={field.placeholder}
+          min={field.min}
+          className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+          aria-required={field.required}
+        />
+      </div>
+    );
   };
 
-  const handleInputChange = (e, entryId, data = null, isRemove = false) => {
-    if (isRemove) {
-      console.log(`Removing item with ID: ${entryId}`); // Debug: Log item removal
-      setFormData((prev) => ({
-        ...prev,
-        items: prev.items.filter((item) => item.id !== entryId),
-      }));
-      return;
-    }
-
-    const { name, value } = e ? e.target : { name: null, value: null };
-    console.log(`Updating item field: ${name} = ${value} for entry ${entryId}`); // Debug: Log item field changes
-    setFormData((prev) => {
-      const updatedItems = data
-        ? prev.items.some((item) => item.id === entryId)
-          ? prev.items.map((item) => (item.id === entryId ? { ...item, ...data } : item))
-          : [...prev.items, { id: entryId, ...data }]
-        : prev.items.map((item) =>
-            item.id === entryId ? { ...item, [name]: value } : item
-          );
-      const newData = { ...prev, items: updatedItems };
-      console.log("Updated formData (items):", JSON.stringify(newData, null, 2)); // Debug: Log updated formData
-      return newData;
-    });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    console.log("Form submitted"); // Debug: Confirm form submission
-
-    if (!formData) {
-      console.error("Form data is null");
-      toast.error("Form data is not initialized.");
-      return;
-    }
-
-    if (!rfqData.id) {
-      console.error("Invalid RFQ ID");
-      toast.error("Invalid RFQ ID. Cannot update RFQ.");
-      return;
-    }
-
-    try {
-      const payload = {
-        company_name: formData.company_name,
-        reference: formData.reference || "",
-        address: formData.address,
-        phone: formData.phone,
-        email: formData.email,
-        rfq_channel: formData.rfq_channel || "",
-        attention_name: formData.attention_name || "",
-        attention_phone: formData.attention_phone || "",
-        attention_email: formData.attention_email || "",
-        due_date: formData.due_date,
-        assign_to: formData.assign_to ? parseInt(formData.assign_to) : null,
-        assign_to_designation: formData.assign_to_designation || "",
-        items: formData.items.map((item) => ({
-          id: item.id, // Include item ID for updates
-          item_name: item.item_name || "",
-          product_name: item.product_name || "",
-          quantity: parseFloat(item.quantity) || 0,
-          unit: item.unit || "",
-        })),
-      };
-      console.log("Submitting payload to /add-rfqs/", JSON.stringify(payload, null, 2)); // Debug: Log payload
-      const response = await apiClient.put(`/add-rfqs/${rfqData.id}/`, payload);
-      console.log("API response:", JSON.stringify(response.data, null, 2)); // Debug: Log response
-      toast.success("RFQ updated successfully!");
-      navigate("/pre-job/view-rfq", { state: { refresh: true } });
-    } catch (error) {
-      console.error("Error updating RFQ:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers,
-      });
-      const errorMessage =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        Object.values(error.response?.data || {}).join(", ") ||
-        "Failed to update RFQ. Please check the form and try again.";
-      toast.error(errorMessage);
-    }
-  };
-
-  if (loading) {
-    return <p className="text-gray-600 text-center">Loading...</p>;
-  }
-  if (error) {
-    return <p className="text-red-600 text-center">{error}</p>;
-  }
-  if (!formData) {
-    return <p className="text-red-600 text-center">Form data not initialized. Please try again.</p>;
-  }
+  if (loading) return <p className="text-gray-600 text-center">Loading...</p>;
+  if (error) return <p className="text-red-600 text-center">{error}</p>;
+  if (!formData) return <p className="text-red-600 text-center">Form data not initialized.</p>;
 
   return (
     <div className="container mx-auto p-6 bg-gray-50 min-h-screen">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center">
-          <button
-            onClick={() => navigate("/pre-job/view-rfq")}
-            className="text-gray-500 hover:text-gray-700 mr-4"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
+          <button onClick={() => navigate("/pre-job/view-rfq")} className="text-gray-500 hover:text-gray-700 mr-4">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <h1 className="text-2xl font-semibold text-gray-800">
-            Edit RFQ #{formData.rfq_no}
-          </h1>
+          <h1 className="text-2xl font-semibold text-gray-800">Edit RFQ #{formData.rfq_no}</h1>
         </div>
       </div>
-      <CRMManager
-        apiBaseUrl="/add-rfqs/"
-        fields={repeatableFields}
-        singleFields={singleFields}
-        title="Edit RFQ"
-        initialData={formData}
-        isEditing={true}
-        showRepeatableFields={true}
-        currentStep={2}
-        totalSteps={2}
-        formData={formData}
-        onInputChange={handleInputChange}
-        onSingleInputChange={handleSingleInputChange}
-        onSubmit={handleSubmit}
-        redirectPath="/pre-job/view-rfq"
-      />
+      <div className="mx-auto p-6 bg-white rounded-lg shadow-md">
+        <form onSubmit={handleSubmit} className="mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {fields.map((field) => renderField(field))}
+          </div>
+          <div className="mt-6">
+            {formData.items.map((entry) => (
+              <div key={entry.id} className="mb-4 p-4 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4">
+                {repeatableFields.map((field) => renderField(field, entry.id))}
+                {formData.items.length > 1 && (
+                  <div className="flex items-center justify-end md:col-span-3">
+                    <button
+                      type="button"
+                      onClick={() => removeFormBlock(entry.id)}
+                      className="bg-red-400 text-white px-2 py-1 text-sm rounded hover:bg-red-500 transition-colors duration-200 flex items-center"
+                    >
+                      <Trash size={16} className="mr-1" /> Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addFormBlock}
+              className="bg-green-500 text-white px-4 py-2 text-sm rounded-lg hover:bg-green-600 transition-colors duration-200 flex items-center mb-4"
+            >
+              <Plus size={18} className="mr-2" /> Add Item
+            </button>
+          </div>
+          <div className="flex justify-end mt-6">
+            <button
+              type="submit"
+              disabled={loading}
+              className="bg-indigo-500 text-white px-4 py-2 text-sm rounded-lg hover:bg-indigo-600 transition-colors duration-200"
+            >
+              {loading ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

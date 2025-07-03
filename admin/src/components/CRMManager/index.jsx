@@ -27,13 +27,8 @@ const CRMManager = ({
   const [formEntries, setFormEntries] = useState(
     initialData?.items && Array.isArray(initialData?.items)
       ? initialData.items.map((item, index) => ({
-          id: Date.now() + index,
-          data: {
-            item_name: item.item_name || "",
-            product_name: item.product_name || "",
-            quantity: item.quantity || "",
-            unit: item.unit || "",
-          },
+          id: item.id || Date.now() + index,
+          data: item,
         }))
       : [{ id: Date.now(), data: {} }]
   );
@@ -42,7 +37,6 @@ const CRMManager = ({
   const [singleFieldOptions, setSingleFieldOptions] = useState({});
   const [activeDropdown, setActiveDropdown] = useState(null);
 
-  // Fetch options for repeatable fields
   useEffect(() => {
     const fetchDropdownOptions = async () => {
       const options = {};
@@ -69,7 +63,6 @@ const CRMManager = ({
     if (currentStep === 2 && fields.length > 0) fetchDropdownOptions();
   }, [fields, currentStep]);
 
-  // Fetch options for single fields
   useEffect(() => {
     const fetchSingleFieldOptions = async () => {
       const options = {};
@@ -96,12 +89,9 @@ const CRMManager = ({
     if (singleFields.length > 0) fetchSingleFieldOptions();
   }, [singleFields]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (!e.target.closest(".dropdown-container")) {
-        setActiveDropdown(null);
-      }
+      if (!e.target.closest(".dropdown-container")) setActiveDropdown(null);
     };
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
@@ -109,14 +99,9 @@ const CRMManager = ({
 
   const validateEntry = (entry) => {
     for (const field of fields) {
-      if (field.required && !entry.data[field.name]) {
-        return `${field.label} is required`;
-      }
-      if (field.type === "number" && entry.data[field.name]) {
-        const value = parseFloat(entry.data[field.name]);
-        if (field.min !== undefined && value < field.min) {
-          return `${field.label} must be at least ${field.min}`;
-        }
+      if (field.required && !entry.data[field.name]) return `${field.label} is required`;
+      if (field.type === "number" && entry.data[field.name] && parseFloat(entry.data[field.name]) < field.min) {
+        return `${field.label} must be at least ${field.min}`;
       }
     }
     return null;
@@ -124,14 +109,9 @@ const CRMManager = ({
 
   const validateSingleFields = () => {
     for (const field of singleFields) {
-      if (field.required && !formData[field.name]) {
-        return `${field.label} is required`;
-      }
-      if (field.type === "number" && formData[field.name]) {
-        const value = parseFloat(formData[field.name]);
-        if (field.min !== undefined && value < field.min) {
-          return `${field.label} must be at least ${field.min}`;
-        }
+      if (field.required && !formData[field.name]) return `${field.label} is required`;
+      if (field.type === "number" && formData[field.name] && parseFloat(formData[field.name]) < field.min) {
+        return `${field.label} must be at least ${field.min}`;
       }
     }
     return null;
@@ -140,7 +120,7 @@ const CRMManager = ({
   const addFormBlock = () => {
     const newId = Date.now();
     setFormEntries((prev) => [...prev, { id: newId, data: {} }]);
-    onInputChange(null, newId, { item_name: "", product_name: "", quantity: "", unit: "" });
+    onInputChange(null, newId, {});
   };
 
   const removeFormBlock = (entryId) => {
@@ -176,23 +156,17 @@ const CRMManager = ({
 
     const itemsData = showRepeatableFields
       ? formEntries
-          .map((entry) => ({
-            ...entry.data,
-          }))
+          .map((entry) => ({ ...entry.data }))
           .filter((data) => Object.keys(data).length > 0)
       : [];
 
     if (showRepeatableFields && itemsData.length === 0) {
-      toast.error("Please add at least one item or product.");
+      toast.error("Please add at least one entry.");
       setIsSubmitting(false);
       return;
     }
 
-    const combinedData = {
-      ...formData,
-      assign_to: formData.assign_to ? parseInt(formData.assign_to) : null,
-      items: itemsData,
-    };
+    const combinedData = { ...formData, items: itemsData };
 
     try {
       if (isEditing && initialData?.id) {
@@ -216,17 +190,10 @@ const CRMManager = ({
     const value = entry?.data[field.name] || "";
     const options = dropdownOptions[field.name] || [];
 
-    if (field.type === "select" && field.searchEndpoint) {
-      const filteredOptions = options
-        .filter((option) => option.label.toLowerCase().includes(value.toLowerCase()))
-        .sort((a, b) => a.label.localeCompare(b.label));
-
+    if (field.type === "select") {
       return (
-        <div key={field.name} className="mb-4 relative dropdown-container">
-          <label
-            htmlFor={`${field.name}-${entryId}`}
-            className="block text-xs font-medium text-gray-800 mb-1"
-          >
+        <div key={`${field.name}-${entryId}`} className="mb-4 relative dropdown-container">
+          <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-gray-800 mb-1">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
@@ -234,19 +201,15 @@ const CRMManager = ({
             id={`${field.name}-${entryId}`}
             name={field.name}
             value={value}
-            onChange={(e) => {
-              onInputChange(e, entryId);
-              setActiveDropdown(`${field.name}-${entryId}`);
-            }}
+            onChange={(e) => onInputChange(e, entryId)}
             onFocus={() => setActiveDropdown(`${field.name}-${entryId}`)}
-            placeholder={field.placeholder || `Select ${field.label}`}
-            disabled={false}
+            placeholder={field.placeholder}
             className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           />
-          {activeDropdown === `${field.name}-${entryId}` && value && filteredOptions.length > 0 && (
+          {activeDropdown === `${field.name}-${entryId}` && value && options.length > 0 && (
             <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
-              {filteredOptions.map((option) => (
+              {options.map((option) => (
                 <li
                   key={option.value}
                   className="p-2 hover:bg-gray-100 cursor-pointer"
@@ -263,78 +226,19 @@ const CRMManager = ({
         </div>
       );
     }
-    if (field.type === "select") {
-      return (
-        <div key={field.name} className="mb-4">
-          <label
-            htmlFor={`${field.name}-${entryId}`}
-            className="block text-xs font-medium text-gray-800 mb-1"
-          >
-            {field.label} {field.required && <span className="text-red-500">*</span>}
-          </label>
-          <select
-            id={`${field.name}-${entryId}`}
-            name={field.name}
-            value={value || ""}
-            onChange={(e) => onInputChange(e, entryId)}
-            disabled={false}
-            className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
-            aria-required={field.required}
-          >
-            <option value="" disabled>
-              {field.placeholder || `Select ${field.label}`}
-            </option>
-            {options.map((option, index) => (
-              <option
-                key={index}
-                value={field.optionValues ? field.optionValues[index] : option}
-              >
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
-      );
-    }
-    if (field.type === "textarea") {
-      return (
-        <div key={field.name} className="mb-4">
-          <label
-            htmlFor={`${field.name}-${entryId}`}
-            className="block text-xs font-medium text-gray-800 mb-1"
-          >
-            {field.label} {field.required && <span className="text-red-500">*</span>}
-          </label>
-          <textarea
-            id={`${field.name}-${entryId}`}
-            name={field.name}
-            value={value}
-            onChange={(e) => onInputChange(e, entryId)}
-            placeholder={field.placeholder || `Enter ${field.label}`}
-            disabled={false}
-            className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
-            aria-required={field.required}
-          />
-        </div>
-      );
-    }
     return (
-      <div key={field.name} className="mb-4">
-        <label
-          htmlFor={`${field.name}-${entryId}`}
-          className="block text-xs font-medium text-gray-800 mb-1"
-        >
+      <div key={`${field.name}-${entryId}`} className="mb-4">
+        <label htmlFor={`${field.name}-${entryId}`} className="block text-xs font-medium text-gray-800 mb-1">
           {field.label} {field.required && <span className="text-red-500">*</span>}
         </label>
         <input
           id={`${field.name}-${entryId}`}
           type={field.type}
           name={field.name}
-          value={value || ""}
+          value={value}
           onChange={(e) => onInputChange(e, entryId)}
-          placeholder={field.placeholder || `Enter ${field.label}`}
+          placeholder={field.placeholder}
           min={field.min}
-          disabled={false}
           className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
           aria-required={field.required}
         />
@@ -344,19 +248,12 @@ const CRMManager = ({
 
   const renderSingleField = (field) => {
     const value = formData[field.name] || "";
-    const options = singleFieldOptions[field.name] || field.options || [];
+    const options = singleFieldOptions[field.name] || [];
 
-    if (field.type === "select" && field.searchEndpoint) {
-      const filteredOptions = options
-        .filter((option) => option.label.toLowerCase().includes(value.toLowerCase()))
-        .sort((a, b) => a.label.localeCompare(b.label));
-
+    if (field.type === "select") {
       return (
         <div key={field.name} className="mb-4 relative dropdown-container">
-          <label
-            htmlFor={field.name}
-            className="block text-xs font-medium text-gray-800 mb-1"
-          >
+          <label htmlFor={field.name} className="block text-xs font-medium text-gray-800 mb-1">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <input
@@ -364,19 +261,15 @@ const CRMManager = ({
             id={field.name}
             name={field.name}
             value={value}
-            onChange={(e) => {
-              onSingleInputChange(e);
-              setActiveDropdown(field.name);
-            }}
+            onChange={onSingleInputChange}
             onFocus={() => setActiveDropdown(field.name)}
-            placeholder={field.placeholder || `Select ${field.label}`}
-            disabled={false}
+            placeholder={field.placeholder}
             className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           />
-          {activeDropdown === field.name && value && filteredOptions.length > 0 && (
+          {activeDropdown === field.name && value && options.length > 0 && (
             <ul className="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
-              {filteredOptions.map((option) => (
+              {options.map((option) => (
                 <li
                   key={option.value}
                   className="p-2 hover:bg-gray-100 cursor-pointer"
@@ -393,67 +286,9 @@ const CRMManager = ({
         </div>
       );
     }
-    if (field.type === "select") {
-      return (
-        <div key={field.name} className="mb-4">
-          <label
-            htmlFor={field.name}
-            className="block text-xs font-medium text-gray-800 mb-1"
-          >
-            {field.label} {field.required && <span className="text-red-500">*</span>}
-          </label>
-          <select
-            id={field.name}
-            name={field.name}
-            value={value}
-            onChange={onSingleInputChange}
-            disabled={false}
-            className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
-            aria-required={field.required}
-          >
-            <option value="" disabled>
-              {field.placeholder || `Select ${field.label}`}
-            </option>
-            {options.map((option, index) => (
-              <option
-                key={index}
-                value={field.optionValues ? field.optionValues[index] : option}
-              >
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
-      );
-    }
-    if (field.type === "textarea") {
-      return (
-        <div key={field.name} className="mb-4">
-          <label
-            htmlFor={field.name}
-            className="block text-xs font-medium text-gray-800 mb-1"
-          >
-            {field.label} {field.required && <span className="text-red-500">*</span>}
-          </label>
-          <textarea
-            id={field.name}
-            name={field.name}
-            value={value}
-            onChange={onSingleInputChange}
-            placeholder={field.placeholder || `Enter ${field.label}`}
-            disabled={false}
-            className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
-            aria-required={field.required}
-          />
-        </div>
-      );
-    }
     return (
       <div key={field.name} className="mb-4">
-        <label
-          htmlFor={field.name}
-          className="block text-xs font-medium text-gray-800 mb-1"
-        >
+        <label htmlFor={field.name} className="block text-xs font-medium text-gray-800 mb-1">
           {field.label} {field.required && <span className="text-red-500">*</span>}
         </label>
         <input
@@ -462,9 +297,8 @@ const CRMManager = ({
           name={field.name}
           value={value}
           onChange={onSingleInputChange}
-          placeholder={field.placeholder || `Enter ${field.label}`}
+          placeholder={field.placeholder}
           min={field.min}
-          disabled={false}
           className="w-full text-sm p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
           aria-required={field.required}
         />
@@ -500,10 +334,7 @@ const CRMManager = ({
             {showRepeatableFields && (
               <>
                 {formEntries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="mb-4 p-4 bg-gray-100 rounded grid grid-cols-3 gap-4"
-                  >
+                  <div key={entry.id} className="mb-4 p-4 bg-gray-100 rounded grid grid-cols-3 gap-4">
                     {fields.map((field) => renderField(field, entry.id))}
                     {formEntries.length > 1 && (
                       <div className="flex items-center justify-end col-span-3">
@@ -534,10 +365,7 @@ const CRMManager = ({
           {currentStep === 1 && totalSteps > 1 ? (
             <button
               type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                onNext(e);
-              }}
+              onClick={onNext}
               disabled={isSubmitting}
               className="bg-indigo-500 text-white px-4 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200 flex items-center"
             >
@@ -572,7 +400,6 @@ CRMManager.propTypes = {
       searchEndpoint: PropTypes.string,
       optionLabel: PropTypes.string,
       optionValue: PropTypes.string,
-      optionValues: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
     })
   ).isRequired,
   singleFields: PropTypes.arrayOf(
@@ -587,7 +414,6 @@ CRMManager.propTypes = {
       searchEndpoint: PropTypes.string,
       optionLabel: PropTypes.string,
       optionValue: PropTypes.string,
-      optionValues: PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number])),
     })
   ),
   title: PropTypes.string,
