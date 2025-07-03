@@ -11,6 +11,8 @@ const ViewRFQ = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedRfq, setSelectedRfq] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const fetchRfqs = async () => {
     try {
@@ -94,6 +96,16 @@ const ViewRFQ = () => {
     }
   };
 
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentRfqs = rfqs.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(rfqs.length / itemsPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  const nextPage = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
+  const prevPage = () => currentPage > 1 && setCurrentPage(currentPage - 1);
+
   if (loading) return <p className="text-black text-center">Loading...</p>;
   if (error) return <p className="text-red-600 text-center">{error}</p>;
   if (rfqs.length === 0) return <p className="text-black text-center">No RFQs found.</p>;
@@ -119,7 +131,7 @@ const ViewRFQ = () => {
             </tr>
           </thead>
           <tbody>
-            {rfqs.map((rfq) => (
+            {currentRfqs.map((rfq) => (
               <tr key={rfq.id} className="border-t hover:bg-gray-50">
                 {tableFields.map((field) => (
                   <td key={field.name} className="px-4 py-3 text-sm text-black">
@@ -142,6 +154,36 @@ const ViewRFQ = () => {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="mt-4 flex justify-center items-center space-x-2">
+        <button
+          onClick={prevPage}
+          disabled={currentPage === 1}
+          className="bg-gray-300 text-black px-3 py-1 rounded hover:bg-gray-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
+        >
+          Previous
+        </button>
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          <button
+            key={page}
+            onClick={() => paginate(page)}
+            className={`px-3 py-1 rounded ${currentPage === page ? "bg-indigo-500 text-white" : "bg-gray-200 text-black hover:bg-gray-300"}`}
+          >
+            {page}
+          </button>
+        ))}
+        <button
+          onClick={nextPage}
+          disabled={currentPage === totalPages}
+          className="bg-gray-300 text-black px-3 py-1 rounded hover:bg-gray-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
+        >
+          Next
+        </button>
+        <span className="text-sm text-black">
+          Page {currentPage} of {totalPages}
+        </span>
       </div>
 
       {selectedRfq && (
