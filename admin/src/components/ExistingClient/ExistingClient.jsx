@@ -53,7 +53,6 @@ const ExistingClient = () => {
   }, []);
 
   useEffect(() => {
-    // Filter and sort clients based on search query
     const filtered = clients
       .filter(client => 
         client.company_name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -79,7 +78,6 @@ const ExistingClient = () => {
   }, [selectedClient]);
 
   useEffect(() => {
-    // Handle outside click to close dropdown
     const handleOutsideClick = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setSearchQuery('');
@@ -93,7 +91,7 @@ const ExistingClient = () => {
 
   const handleClientSelect = (client) => {
     setSelectedClient(client);
-    setSearchQuery(''); // Clear search query to close dropdown
+    setSearchQuery(''); 
   };
 
   const handleInputChange = (e) => {
@@ -115,11 +113,9 @@ const ExistingClient = () => {
 
     try {
       if (selectedClient && selectedClient.id) {
-        // Update existing RFQ
         await apiClient.put(`/add-rfqs/${selectedClient.id}/`, formData);
         toast.success('RFQ updated!');
       } else {
-        // Create new RFQ if no client is selected
         await apiClient.post('/add-rfqs/', formData);
         toast.success('RFQ saved!');
       }

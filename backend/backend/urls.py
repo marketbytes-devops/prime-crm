@@ -30,6 +30,7 @@ urlpatterns = [
         path("", include("product.urls")),
         path("", include("item.urls")),
         path("", include("team.urls")),   
+        path("", include("series.urls")), 
     ])),
     path("documentation/", include("documentation.urls")),
 ]
