@@ -64,7 +64,7 @@ const EditRFQ = () => {
           due_date: rfqResponse.data.due_date || "",
           assign_to: rfqResponse.data.assign_to ? String(rfqResponse.data.assign_to) : "",
           rfq_no: rfqResponse.data.rfq_no || `RFQ-${String(rfqResponse.data.id).padStart(3, "0")}`,
-          current_status: rfqResponse.data.current_status || "Processing", // Initialize current_status
+          current_status: rfqResponse.data.current_status || "Processing",
           items: fetchedItems,
         });
 
@@ -345,10 +345,12 @@ const EditRFQ = () => {
             {fields.map((field) => renderField(field))}
           </div>
           <div className="mt-4">
-            {formData.items.map((entry) => {
+            <h2 className="text-lg font-semibold text-black mb-3">Items</h2>
+            {formData.items.map((entry, index) => {
               const fieldType = entryFieldTypes[entry.id] || (entry.item_name ? "item" : entry.product_name ? "product" : "");
               return (
-                <div key={entry.id} className="mb-3 p-3 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-3">
+                <>
+                <div key={entry.id} className="mb-3 p-3 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
                   {!fieldType ? (
                     <div className="mb-4">
                       <label htmlFor={`field-type-${entry.id}`} className="block text-xs font-medium text-black mb-1">
@@ -373,18 +375,22 @@ const EditRFQ = () => {
                   )}
                   {renderField(repeatableFields.find((f) => f.name === "quantity"), entry.id)}
                   {renderField(repeatableFields.find((f) => f.name === "unit"), entry.id)}
-                  {formData.items.length > 1 && (
-                    <div className="flex items-center justify-end md:col-span-3">
-                      <button
-                        type="button"
-                        onClick={() => removeFormBlock(entry.id)}
-                        className="bg-black text-white px-3 py-2 text-sm rounded hover:bg-gray-800 transition-colors duration-200 flex items-center"
-                      >
-                        <Trash size="16" className="mr-1" /> Remove
-                      </button>
-                    </div>
-                  )}
                 </div>
+                  <div className="flex items-center justify-end mb-3">
+                    <button
+                      type="button"
+                      onClick={() => removeFormBlock(entry.id)}
+                      disabled={formData.items.length === 1}
+                      className={`text-sm px-3 py-2 rounded flex items-center transition-colors duration-200 ${
+                        formData.items.length === 1
+                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                          : "bg-red-500 text-white hover:bg-red-600"
+                      }`}
+                    >
+                      <Trash size="16" className="mr-1" /> Remove
+                    </button>
+                  </div>
+                </>
               );
             })}
             <button
@@ -401,7 +407,7 @@ const EditRFQ = () => {
               disabled={loading}
               className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
             >
-              {loading ? "Saving..." : "Save"}
+              {loading ? "Updating..." : "Update"}
             </button>
           </div>
         </form>
