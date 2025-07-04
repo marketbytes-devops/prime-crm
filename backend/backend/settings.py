@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'item',
     'team',
     'series',
+    'quotation',
 ]
 
 MIDDLEWARE = [

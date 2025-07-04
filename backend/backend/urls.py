@@ -31,6 +31,7 @@ urlpatterns = [
         path("", include("item.urls")),
         path("", include("team.urls")),   
         path("", include("series.urls")), 
+        path("", include('quotation.urls')),
     ])),
     path("documentation/", include("documentation.urls")),
 ]

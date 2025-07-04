@@ -55,6 +55,7 @@ class RFQItem(models.Model):
     product_name = models.CharField(max_length=255, blank=True, null=True)
     quantity = models.PositiveIntegerField(null=True, blank=True)
     unit = models.CharField(max_length=100, null=True, blank=True)
-
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    
     def __str__(self):
         return f"{self.item_name or self.product_name} for RFQ {self.rfq.id}"

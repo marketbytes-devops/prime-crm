@@ -20,6 +20,8 @@ import ExistingClient from "./components/ExistingClient/ExistingClient";
 import Team from "./pages/Settings/Team";
 import EditRFQ from "./pages/Execution/RFQ/EditRFQ";
 import NumberSeries from "./components/NumberSeries";
+import ViewQuotation from "./pages/Execution/Quotation/ViewQuotation";
+import EditQuotation from "./pages/Execution/Quotation/EditQuotation";
 
 const ProtectedRoute = ({ children, isAuthenticated }) => {
   console.log("ProtectedRoute - isAuthenticated:", isAuthenticated);
@@ -73,6 +75,14 @@ function App() {
         {
           path: "/pre-job/view-rfq",
           element: <ViewRFQ />,
+        },
+        {
+          path: "/pre-job/quotation",
+          element: <ViewQuotation />,
+        },
+        {
+          path: "/pre-job/edit-quotation",
+          element: <EditQuotation />,
         },
         {
           path: "/settings/rfq-channel",

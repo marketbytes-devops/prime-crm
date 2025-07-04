@@ -1,0 +1,766 @@
+import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import apiClient from "../../../helpers/apiClient";
+import { toast } from "react-toastify";
+import { FileText, Upload, Printer } from "lucide-react";
+import ViewCard from "../../../components/ViewCard";
+
+const ViewQuotation = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [quotations, setQuotations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [convertPurchaseOrder, setConvertPurchaseOrder] = useState(null);
+  const [purchaseOrderData, setPurchaseOrderData] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
+  const fetchQuotations = async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.get("/quotations/");
+      const data = Array.isArray(response.data) ? response.data : response.data.results || [];
+      const updatedQuotations = await Promise.all(
+        data.map(async (quotation, index) => {
+          let rfqDetails = {};
+          try {
+            if (quotation.rfq) {
+              const rfqResponse = await apiClient.get(`/add-rfqs/${quotation.rfq}/`);
+              rfqDetails = rfqResponse.data;
+            } else {
+              console.warn(`No RFQ ID for quotation ${quotation.id}`);
+            }
+          } catch (err) {
+            console.error(`Failed to fetch RFQ ${quotation.rfq} for quotation ${quotation.id}:`, err);
+            rfqDetails = {
+              rfq_no: "N/A",
+              reference: "N/A",
+              rfq_channel: "N/A",
+              assign_to_name: "N/A",
+              assign_to_designation: "N/A",
+            };
+          }
+          const nextFollowupDate = calculateNextFollowupDate(quotation);
+          const isDueReminder =
+            quotation.current_status === "Approved" &&
+            (!quotation.purchase_order || quotation.purchase_order.length === 0) &&
+            new Date(quotation.due_date) < new Date().setHours(0, 0, 0, 0);
+          return {
+            ...quotation,
+            si_no: index + 1,
+            current_status: quotation.current_status || "Pending",
+            next_followup_date: nextFollowupDate,
+            is_due_reminder: isDueReminder,
+            latest_remarks: quotation.latest_remarks || "N/A",
+            rfq_details: rfqDetails,
+          };
+        })
+      );
+      setQuotations(updatedQuotations);
+      if (location.state?.quotationId) {
+        const newQuotation = updatedQuotations.find((q) => q.id === location.state.quotationId);
+        if (newQuotation) {
+          setSelectedQuotation(newQuotation);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch quotations:", err);
+      setError("Failed to load quotations.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchQuotations();
+  }, []);
+
+  useEffect(() => {
+    if (location.state?.refresh) {
+      fetchQuotations();
+    }
+  }, [location.state]);
+
+  const calculateNextFollowupDate = (quotation) => {
+    if (!quotation.due_date) return null;
+    const dueDate = new Date(quotation.due_date);
+    const now = new Date();
+    let followupDate = new Date(dueDate);
+    followupDate.setHours(0, 0, 0, 0);
+    if (now > dueDate) {
+      const daysPastDue = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24));
+      const cycles = Math.floor(daysPastDue / 7);
+      followupDate.setDate(dueDate.getDate() + (cycles + 1) * 7);
+    } else {
+      followupDate.setDate(dueDate.getDate() + 1);
+    }
+    return followupDate.toISOString().split("T")[0];
+  };
+
+  const handleConvertToPurchaseOrder = (quotation, orderType) => {
+    setConvertPurchaseOrder({ ...quotation, orderType });
+    setPurchaseOrderData({
+      ...quotation,
+      client_po_number: "",
+      po_file: null,
+      items: quotation.items.map((item) => ({
+        ...item,
+        quantity: orderType === "partial" ? item.quantity : item.quantity,
+      })),
+    });
+  };
+
+  const handlePoFileChange = (e) => {
+    setPurchaseOrderData((prev) => ({
+      ...prev,
+      po_file: e.target.files[0] || null,
+    }));
+  };
+
+  const handlePoQuantityChange = (itemId, value) => {
+    const quantity = parseInt(value) || 0;
+    setPurchaseOrderData((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.id === itemId
+          ? {
+            ...item,
+            quantity: Math.min(quantity, item.quantity),
+            total_price: (item.unit_price || 0) * Math.min(quantity, item.quantity),
+          }
+          : item
+      ),
+    }));
+  };
+
+  const handlePrint = (quotation) => {
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Quotation ${quotation.quotation_no}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          h1 { text-align: center; }
+          .details { margin-bottom: 20px; }
+          .details p { margin: 5px 0; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+          .total { margin-top: 20px; font-weight: bold; }
+          @media print {
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Quotation #${quotation.quotation_no}</h1>
+        <div class="details">
+          <p><strong>Company Name:</strong> ${quotation.company_name || "N/A"}</p>
+          <p><strong>Address:</strong> ${quotation.address || "N/A"}</p>
+          <p><strong>Phone:</strong> ${quotation.phone || "N/A"}</p>
+          <p><strong>Email:</strong> ${quotation.email || "N/A"}</p>
+          <p><strong>Attention Name:</strong> ${quotation.attention_name || "N/A"}</p>
+          <p><strong>Attention Phone:</strong> ${quotation.attention_phone || "N/A"}</p>
+          <p><strong>Attention Email:</strong> ${quotation.attention_email || "N/A"}</p>
+          <p><strong>Created At:</strong> ${quotation.created_at ? new Date(quotation.created_at).toLocaleDateString() : "N/A"}</p>
+          <p><strong>Due Date:</strong> ${quotation.due_date ? new Date(quotation.due_date).toLocaleDateString() : "N/A"}</p>
+          <p><strong>Status:</strong> ${quotation.current_status || "N/A"}</p>
+          <p><strong>Latest Remarks:</strong> ${quotation.latest_remarks || "N/A"}</p>
+          <h3>RFQ Details</h3>
+          <p><strong>RFQ No:</strong> ${quotation.rfq_details?.rfq_no || "N/A"}</p>
+          <p><strong>Reference:</strong> ${quotation.rfq_details?.reference || "N/A"}</p>
+          <p><strong>RFQ Channel:</strong> ${quotation.rfq_details?.rfq_channel || "N/A"}</p>
+          <p><strong>Assigned To:</strong> ${quotation.rfq_details?.assign_to_name || "N/A"}</p>
+          <p><strong>Designation:</strong> ${quotation.rfq_details?.assign_to_designation || "N/A"}</p>
+        </div>
+        ${quotation.items && quotation.items.length > 0 ? `
+          <h3>Items & Products</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Item/Product</th>
+                <th>Quantity</th>
+                <th>Unit</th>
+                <th>Unit Price</th>
+                <th>Total Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${quotation.items.map((item) => `
+                <tr>
+                  <td>${item.item_name || item.product_name || "N/A"}</td>
+                  <td>${item.quantity || "N/A"}</td>
+                  <td>${item.unit || "N/A"}</td>
+                  <td>$${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}</td>
+                  <td>$${item.total_price != null ? Number(item.total_price).toFixed(2) : "0.00"}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+          <div class="total">
+            Total Amount: $${quotation.items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unit_price || 0), 0).toFixed(2)}
+          </div>
+        ` : ""}
+        ${quotation.purchase_order && quotation.purchase_order.length > 0 ? `
+          <h3>Purchase Orders</h3>
+          ${quotation.purchase_order.map((po, index) => `
+            <div style="margin-top: 20px;">
+              <h4>Purchase Order #${index + 1}</h4>
+              <p><strong>Client PO Number:</strong> ${po.client_po_number || "N/A"}</p>
+              <p><strong>Order Type:</strong> ${po.order_type || "N/A"}</p>
+              <p><strong>Created At:</strong> ${po.created_at ? new Date(po.created_at).toLocaleDateString() : "N/A"}</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item/Product</th>
+                    <th>Quantity</th>
+                    <th>Unit</th>
+                    <th>Unit Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${po.items.map((item) => `
+                    <tr>
+                      <td>${item.item_name || item.product_name || "N/A"}</td>
+                      <td>${item.quantity || "N/A"}</td>
+                      <td>${item.unit || "N/A"}</td>
+                      <td>$${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          `).join("")}
+        ` : ""}
+        <button class="no-print" onclick="window.print()">Print</button>
+      </body>
+      </html>
+    `;
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
+  };
+
+  const handleSavePurchaseOrder = async () => {
+    if (!purchaseOrderData) return;
+
+    const formData = new FormData();
+    formData.append("quotation", convertPurchaseOrder.id);
+    formData.append("client_po_number", purchaseOrderData.client_po_number || "");
+    formData.append("order_type", convertPurchaseOrder.orderType);
+    formData.append("items", JSON.stringify(purchaseOrderData.items.map((item) => ({
+      item_name: item.item_name || null,
+      product_name: item.product_name || null,
+      quantity: item.quantity,
+      unit: item.unit || null,
+      unit_price: item.unit_price || null,
+    }))));
+    if (purchaseOrderData.po_file) {
+      formData.append("po_file", purchaseOrderData.po_file);
+    }
+
+    try {
+      const response = await apiClient.post("/purchase-orders/", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      toast.success("Purchase order created successfully!");
+      setQuotations((prev) =>
+        prev.map((q) =>
+          q.id === convertPurchaseOrder.id
+            ? { ...q, purchase_order: [...(q.purchase_order || []), response.data], current_status: "PO Created" }
+            : q
+        )
+      );
+      setConvertPurchaseOrder(null);
+      setPurchaseOrderData(null);
+      fetchQuotations();
+    } catch (err) {
+      console.error("Failed to create purchase order:", err);
+      toast.error("Failed to create purchase order: " + (err.response?.data?.detail || "Unknown error"));
+    }
+  };
+
+  const handleDelete = async (quotationId) => {
+    if (!window.confirm("Are you sure you want to delete this quotation?")) return;
+    try {
+      await apiClient.delete(`/quotations/${quotationId}/`);
+      toast.success("Quotation deleted successfully");
+      setQuotations((prev) => prev.filter((q) => q.id !== quotationId));
+      setSelectedQuotation(null);
+      setConvertPurchaseOrder(null);
+    } catch (err) {
+      console.error("Failed to delete quotation:", err);
+      toast.error("Failed to delete quotation.");
+    }
+  };
+
+  const updateStatus = async (quotationId, newStatus) => {
+    try {
+      const response = await apiClient.put(`/quotations/${quotationId}/`, {
+        current_status: newStatus,
+      });
+      setQuotations((prev) =>
+        prev.map((q) =>
+          q.id === quotationId
+            ? { ...q, current_status: response.data.current_status }
+            : q
+        )
+      );
+      if (selectedQuotation?.id === quotationId) {
+        setSelectedQuotation((prev) => ({ ...prev, current_status: response.data.current_status }));
+      }
+      toast.success(`Status changed to ${newStatus}`);
+    } catch (err) {
+      console.error("Failed to update status:", err);
+      toast.error("Failed to update status.");
+    }
+  };
+
+  const handleAddRemark = async (quotationId, remark) => {
+    try {
+      const response = await apiClient.patch(`/quotations/${quotationId}/`, {
+        latest_remarks: remark,
+      });
+      setQuotations((prev) =>
+        prev.map((q) =>
+          q.id === quotationId ? { ...q, latest_remarks: response.data.latest_remarks } : q
+        )
+      );
+      if (selectedQuotation?.id === quotationId) {
+        setSelectedQuotation((prev) => ({ ...prev, latest_remarks: response.data.latest_remarks }));
+      }
+      toast.success("Remark added successfully!");
+    } catch (err) {
+      console.error("Failed to add remark:", err);
+      toast.error("Failed to add remark.");
+    }
+  };
+
+  const getRepeatableFields = (items) => {
+    const hasItems = items.some((item) => item.item_name && item.item_name.trim() !== "");
+    const hasProducts = items.some((item) => item.product_name && item.product_name.trim() !== "");
+    const hasUnitPrice = items.some((item) => item.unit_price != null);
+    const hasTotalPrice = items.some((item) => item.total_price != null);
+
+    return repeatableFields.filter((field) => {
+      return (
+        (hasItems && field.name === "item_name") ||
+        (hasProducts && field.name === "product_name") ||
+        field.name === "quantity" ||
+        field.name === "unit" ||
+        (hasUnitPrice && field.name === "unit_price") ||
+        (hasTotalPrice && field.name === "total_price")
+      );
+    });
+  };
+
+  const tableFields = [
+    { name: "si_no", label: "SI No" },
+    { name: "created_at", label: "Created At", type: "date" },
+    { name: "quotation_no", label: "Quotation No" },
+    { name: "rfq_details.rfq_no", label: "RFQ No" },
+    { name: "rfq_details.assign_to_name", label: "Assigned To" },
+    { name: "current_status", label: "Status" },
+    { name: "when_approved", label: "When Approved", type: "date" },
+    { name: "next_followup_date", label: "Next Followup Date", type: "date" },
+    { name: "latest_remarks", label: "Latest Remarks" },
+  ];
+
+  const allSingleFields = [
+    { name: "quotation_no", label: "Quotation No", type: "text" },
+    { name: "company_name", label: "Company Name", type: "text" },
+    { name: "address", label: "Address", type: "text" },
+    { name: "phone", label: "Phone", type: "text" },
+    { name: "email", label: "Email", type: "email" },
+    { name: "attention_name", label: "Attention Name", type: "text" },
+    { name: "attention_phone", label: "Attention Phone", type: "text" },
+    { name: "attention_email", label: "Attention Email", type: "email" },
+    { name: "created_at", label: "Created At", type: "date" },
+    { name: "due_date", label: "Due Date", type: "date" },
+    { name: "when_approved", label: "When Approved", type: "date" },
+    { name: "current_status", label: "Status", type: "text" },
+    { name: "next_followup_date", label: "Next Followup Date", type: "date" },
+    { name: "latest_remarks", label: "Latest Remarks", type: "text" },
+    { name: "rfq_details.rfq_no", label: "RFQ No", type: "text" },
+    { name: "rfq_details.reference", label: "Reference", type: "text" },
+    { name: "rfq_details.rfq_channel", label: "RFQ Channel", type: "text" },
+    { name: "rfq_details.assign_to_name", label: "Assigned To", type: "text" },
+    { name: "rfq_details.assign_to_designation", label: "Designation", type: "text" },
+  ];
+
+  const repeatableFields = [
+    { name: "item_name", label: "Item" },
+    { name: "product_name", label: "Product" },
+    { name: "quantity", label: "Quantity" },
+    { name: "unit", label: "Unit" },
+    { name: "unit_price", label: "Unit Price" },
+    { name: "total_price", label: "Total Price" },
+  ];
+
+  const purchaseOrderFields = [
+    { name: "client_po_number", label: "Client PO Number" },
+    { name: "order_type", label: "Order Type" },
+    { name: "created_at", label: "Created At", type: "date" },
+  ];
+
+  const purchaseOrderItemFields = [
+    { name: "item_name", label: "Item" },
+    { name: "product_name", label: "Product" },
+    { name: "quantity", label: "Quantity" },
+    { name: "unit", label: "Unit" },
+    { name: "unit_price", label: "Unit Price" },
+  ];
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  const nextPage = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
+  const prevPage = () => currentPage > 1 && setCurrentPage(currentPage - 1);
+  const totalPages = Math.ceil(quotations.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentQuotations = quotations.slice(indexOfFirstItem, indexOfLastItem);
+
+  if (loading) return <p className="text-black text-center">Loading...</p>;
+  if (error) return <p className="text-red-600 text-center">{error}</p>;
+  if (quotations.length === 0) return <p className="text-black text-center">No quotations found.</p>;
+
+  return (
+    <div className="container mx-auto p-4 bg-transparent min-h-screen">
+      <h2 className="text-xl font-semibold mb-4 text-black">View Quotations</h2>
+      <div className="overflow-x-auto rounded-lg shadow-sm">
+        <table className="min-w-full bg-white border border-gray-200">
+          <thead>
+            <tr className="bg-gray-100">
+              {tableFields.map((field) => (
+                <th
+                  key={field.name}
+                  className="px-4 py-2 text-sm font-medium text-black text-left"
+                >
+                  {field.name === "current_status" ? (
+                    <div className="flex items-center">
+                      {field.label}
+                      <span className="ml-1 text-xs text-gray-500">(Editable)</span>
+                    </div>
+                  ) : (
+                    field.label
+                  )}
+                </th>
+              ))}
+              <th className="px-4 py-2 text-sm font-medium text-black text-left">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentQuotations.map((quotation) => (
+              <tr
+                key={quotation.id}
+                className={`border-t hover:bg-gray-50 ${quotation.is_due_reminder ? "bg-red-50" : ""}`}
+              >
+                {tableFields.map((field) => (
+                  <td key={field.name} className="px-4 py-3 text-sm text-black">
+                    {field.name === "current_status" ? (
+                      <select
+                        value={quotation.current_status || "Pending"}
+                        onChange={(e) => updateStatus(quotation.id, e.target.value)}
+                        className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="PO Created">PO Created</option>
+                      </select>
+                    ) : field.name === "latest_remarks" ? (
+                      <input
+                        type="text"
+                        value={quotation.latest_remarks || ""}
+                        onChange={(e) => handleAddRemark(quotation.id, e.target.value)}
+                        className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        placeholder="Add remark"
+                      />
+                    ) : field.name.includes("rfq_details.") ? (
+                      quotation.rfq_details[field.name.split(".")[1]] || "N/A"
+                    ) : field.type === "date" ? (
+                      quotation[field.name]
+                        ? new Date(quotation[field.name]).toLocaleDateString()
+                        : "N/A"
+                    ) : (
+                      quotation[field.name] || "N/A"
+                    )}
+                    {field.name === "next_followup_date" && quotation.is_due_reminder && (
+                      <span className="text-red-600 text-xs ml-2">(Due Reminder)</span>
+                    )}
+                  </td>
+                ))}
+                <td className="px-4 py-3 text-sm text-black flex space-x-2">
+                  <button
+                    onClick={() => setSelectedQuotation(quotation)}
+                    className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
+                  >
+                    View Details
+                  </button>
+                  {(!quotation.purchase_order || quotation.purchase_order.length === 0) && (
+                    <>
+                      <button
+                        onClick={() => handleConvertToPurchaseOrder(quotation, "full")}
+                        className="bg-green-500 text-white px-3 py-2 text-sm rounded hover:bg-green-600 transition-colors duration-200 flex items-center"
+                      >
+                        <FileText size={16} className="mr-1" /> Full PO
+                      </button>
+                      <button
+                        onClick={() => handleConvertToPurchaseOrder(quotation, "partial")}
+                        className="bg-green-500 text-white px-3 py-2 text-sm rounded hover:bg-green-600 transition-colors duration-200 flex items-center"
+                      >
+                        <FileText size={16} className="mr-1" /> Partial PO
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => handlePrint(quotation)}
+                    className="bg-blue-500 text-white px-3 py-2 text-sm rounded hover:bg-blue-600 transition-colors duration-200 flex items-center"
+                  >
+                    <Printer size={16} className="mr-1" /> Print
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-4 flex justify-center items-center space-x-2">
+        <button
+          onClick={prevPage}
+          disabled={currentPage === 1}
+          className="bg-gray-300 text-black px-3 py-1 rounded hover:bg-gray-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
+        >
+          Previous
+        </button>
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          <button
+            key={page}
+            onClick={() => paginate(page)}
+            className={`px-3 py-1 rounded ${currentPage === page ? "bg-indigo-500 text-white" : "bg-gray-200 text-black hover:bg-gray-300"}`}
+          >
+            {page}
+          </button>
+        ))}
+        <button
+          onClick={nextPage}
+          disabled={currentPage === totalPages}
+          className="bg-gray-300 text-black px-3 py-1 rounded hover:bg-gray-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
+        >
+          Next
+        </button>
+        <span className="text-sm text-black">
+          Page {currentPage} of {totalPages}
+        </span>
+      </div>
+
+      {selectedQuotation && (
+        <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50 transition-opacity duration-300">
+          <div className="scale-65 bg-white rounded-lg shadow-sm p-6 w-full">
+            <h3 className="text-lg font-semibold mb-3 text-black border-b pb-2">
+              Quotation Details #{selectedQuotation.quotation_no}
+              {selectedQuotation.is_due_reminder && (
+                <span className="text-red-600 text-sm ml-2">(Due Reminder)</span>
+              )}
+            </h3>
+            <ViewCard
+              singleFields={allSingleFields}
+              repeatableFields={
+                selectedQuotation.items && selectedQuotation.items.length > 0
+                  ? getRepeatableFields(selectedQuotation.items)
+                  : []
+              }
+              title={
+                selectedQuotation.items && selectedQuotation.items.length > 0
+                  ? (() => {
+                    const hasItems = selectedQuotation.items.some(
+                      (item) => item.item_name && item.item_name.trim() !== ""
+                    );
+                    const hasProducts = selectedQuotation.items.some(
+                      (item) => item.product_name && item.product_name.trim() !== ""
+                    );
+                    return hasItems && hasProducts
+                      ? "Items & Products"
+                      : hasItems
+                        ? "Items"
+                        : hasProducts
+                          ? "Products"
+                          : "";
+                  })()
+                  : ""
+              }
+              showRepeatableFields={selectedQuotation.items && selectedQuotation.items.length > 0}
+              initialData={selectedQuotation}
+            />
+            {selectedQuotation.purchase_order && selectedQuotation.purchase_order.length > 0 && (
+              <>
+                {selectedQuotation.purchase_order.map((po, index) => (
+                  <div key={index} className="mt-4">
+                    <h4 className="text-md font-semibold mb-2 text-black">
+                      Purchase Order #{index + 1}
+                    </h4>
+                    <ViewCard
+                      singleFields={purchaseOrderFields}
+                      repeatableFields={po.items && po.items.length > 0 ? purchaseOrderItemFields : []}
+                      title="Purchase Order Items"
+                      showRepeatableFields={po.items && po.items.length > 0}
+                      initialData={po}
+                    />
+                  </div>
+                ))}
+              </>
+            )}
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={() =>
+                  navigate(`/pre-job/edit-quotation`, {
+                    state: { quotationData: selectedQuotation, isEditing: true },
+                  })
+                }
+                className="bg-indigo-500 text-white px-3 py-2 rounded hover:bg-indigo-600 transition-colors duration-200"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => handleDelete(selectedQuotation.id)}
+                className="bg-red-500 text-white hover:bg-red-600 px-3 py-2 rounded transition-colors duration-200"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => handlePrint(selectedQuotation)}
+                className="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 transition-colors duration-200 flex items-center"
+              >
+                <Printer size={16} className="mr-1" /> Print
+              </button>
+              <button
+                onClick={() => setSelectedQuotation(null)}
+                className="bg-gray-200 text-black px-3 py-2 rounded hover:bg-gray-300 transition-colors duration-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {convertPurchaseOrder && purchaseOrderData && (
+        <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50 transition-opacity duration-300">
+          <div className="scale-80 bg-white rounded-lg shadow-sm p-6 w-full max-w-2xl">
+            <h3 className="text-lg font-semibold mb-3 text-black border-b pb-2">
+              Convert Quotation #{convertPurchaseOrder.quotation_no} to {convertPurchaseOrder.orderType === "full" ? "Full" : "Partial"} Purchase Order
+            </h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Client PO Number
+              </label>
+              <input
+                type="text"
+                value={purchaseOrderData.client_po_number}
+                onChange={(e) =>
+                  setPurchaseOrderData((prev) => ({
+                    ...prev,
+                    client_po_number: e.target.value,
+                  }))
+                }
+                className="w-full p-2 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                placeholder="Enter Client PO Number (Optional)"
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Upload PO Document (Optional)
+              </label>
+              <input
+                type="file"
+                onChange={handlePoFileChange}
+                className="w-full p-2 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            {convertPurchaseOrder.orderType === "partial" && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-gray-100 rounded-lg">
+                  <thead>
+                    <tr>
+                      {repeatableFields.map((field) => (
+                        <th
+                          key={field.name}
+                          className="px-4 py-2 text-xs font-medium text-gray-600 text-left"
+                        >
+                          {field.label}
+                          {field.name === "quantity" && (
+                            <span className="ml-1 text-xs text-gray-500">(Editable)</span>
+                          )}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {purchaseOrderData.items.map((item, index) => (
+                      <tr key={item.id || index} className="border-t">
+                        <td className="px-4 py-2 text-sm text-gray-800">
+                          {item.item_name || "N/A"}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-800">
+                          {item.product_name || "N/A"}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-800">
+                          <input
+                            type="number"
+                            value={item.quantity || ""}
+                            onChange={(e) => handlePoQuantityChange(item.id, e.target.value)}
+                            className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            min="0"
+                            max={item.quantity}
+                            placeholder="Enter Quantity"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-800">
+                          {item.unit || "N/A"}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-800">
+                          ${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-800">
+                          ${item.total_price != null ? Number(item.total_price).toFixed(2) : "0.00"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="mt-4 flex justify-end space-x-3">
+              <button
+                onClick={handleSavePurchaseOrder}
+                className="bg-indigo-500 text-white px-3 py-2 rounded hover:bg-indigo-600 transition-colors duration-200"
+              >
+                Save Purchase Order
+              </button>
+              <button
+                onClick={() => {
+                  setConvertPurchaseOrder(null);
+                  setPurchaseOrderData(null);
+                }}
+                className="bg-gray-200 text-black px-3 py-2 rounded hover:bg-gray-300 transition-colors duration-200"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ViewQuotation;

@@ -1,15 +1,25 @@
 import PropTypes from "prop-types";
 
 const ViewCard = ({ singleFields, repeatableFields, title, showRepeatableFields = true, initialData }) => {
+  const getNestedValue = (obj, path) => {
+    return path.split(".").reduce((current, key) => {
+      return current && current[key] !== undefined ? current[key] : null;
+    }, obj);
+  };
+
   const renderFieldValue = (field, value) => {
+    if (value === null || value === undefined) return "N/A";
     if (field.type === "date") {
       return value ? new Date(value).toLocaleDateString() : "N/A";
     }
-    return value || "N/A";
+    if (field.name === "total_price" || field.name === "unit_price") {
+      return value ? `$${Number(value).toFixed(2)}` : "$0.00";
+    }
+    return value.toString() || "N/A";
   };
 
   if (!initialData) {
-    return <p className="text-gray-600 text-center">No RFQ data available.</p>;
+    return <p className="text-gray-600 text-center">No data available.</p>;
   }
 
   return (
@@ -20,7 +30,9 @@ const ViewCard = ({ singleFields, repeatableFields, title, showRepeatableFields 
           {singleFields.map((field) => (
             <div key={field.name} className="flex flex-col">
               <span className="text-xs font-medium text-gray-600">{field.label}</span>
-              <span className="text-sm text-gray-800">{renderFieldValue(field, initialData[field.name])}</span>
+              <span className="text-sm text-gray-800">
+                {renderFieldValue(field, getNestedValue(initialData, field.name))}
+              </span>
             </div>
           ))}
         </div>
@@ -59,7 +71,7 @@ const ViewCard = ({ singleFields, repeatableFields, title, showRepeatableFields 
             </div>
           </div>
         ) : showRepeatableFields ? (
-          <p className="text-sm text-gray-600 p-4">No items found for this RFQ.</p>
+          <p className="text-sm text-gray-600 p-4">No items found.</p>
         ) : null}
       </div>
     </div>
@@ -71,7 +83,7 @@ ViewCard.propTypes = {
     PropTypes.shape({
       name: PropTypes.string.isRequired,
       label: PropTypes.string.isRequired,
-      type: PropTypes.string.isRequired,
+      type: PropTypes.string,
       required: PropTypes.bool,
       placeholder: PropTypes.string,
       options: PropTypes.arrayOf(PropTypes.string),

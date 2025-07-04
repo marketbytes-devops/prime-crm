@@ -4,7 +4,7 @@ from .models import Item, Unit
 class ItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = Item
-        fields = ['id', 'name', 'created_at']
+        fields = ['id', 'name', 'price', 'created_at']
 
 class UnitSerializer(serializers.ModelSerializer):
     class Meta:

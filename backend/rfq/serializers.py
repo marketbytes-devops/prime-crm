@@ -25,7 +25,7 @@ class ClientSerializer(serializers.ModelSerializer):
 class RFQItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = RFQItem
-        fields = ['id', 'item_name', 'product_name', 'quantity', 'unit']
+        fields = ['id', 'item_name', 'product_name', 'quantity', 'unit', 'unit_price']
 
 class RFQSerializer(serializers.ModelSerializer):
     rfq_channel = serializers.CharField(allow_null=True, required=False)
