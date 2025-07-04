@@ -244,7 +244,7 @@ const ViewRFQ = () => {
       handlePrint(quotation, true);
 
       // Navigate to ViewQuotation
-      navigate("/pre-job/view-quotation", { state: { quotationId: quotation.id } });
+      navigate("/pre-job/quotation", { state: { quotationId: quotation.id } });
 
       setConvertQuotationRfq(null);
       setQuotationData(null);
