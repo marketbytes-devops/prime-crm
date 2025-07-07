@@ -38,19 +38,15 @@ class RFQSerializer(serializers.ModelSerializer):
     )
     assign_to_name = serializers.CharField(source='assign_to.name', read_only=True)
     assign_to_designation = serializers.CharField(source='assign_to.designation', read_only=True)
-    series = serializers.PrimaryKeyRelatedField(
-        queryset=NumberSeries.objects.all(),
-        allow_null=True,
-        required=False
-    )
+    assign_to_email = serializers.CharField(source='assign_to.email', read_only=True)  
 
     class Meta:
         model = RFQ
         fields = [
             'id', 'created_at', 'company_name', 'reference', 'address', 'phone', 'email',
             'rfq_channel', 'attention_name', 'attention_phone', 'attention_email',
-            'due_date', 'assign_to', 'assign_to_name', 'assign_to_designation', 'items',
-            'current_status', 'rfq_no', 'series'
+            'due_date', 'assign_to', 'assign_to_name', 'assign_to_designation', 'assign_to_email',
+            'items', 'current_status', 'rfq_no', 'series'
         ]
 
     def validate(self, data):
@@ -209,10 +205,10 @@ class RFQSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
-        assign_to = validated_data.pop('assign_to')
+        assign_to = validated_data.pop('assign_to', None)
         series = validated_data.pop('series', None)
         rfq_no = series.get_next_sequence() if series else None
-        rfq = RFQ.objects.create(rfq_no=rfq_no, series=series, **validated_data)
+        rfq = RFQ.objects.create(rfq_no=rfq_no, series=series, assign_to=assign_to, **validated_data)
         for item_data in items_data:
             RFQItem.objects.create(rfq=rfq, **item_data)
         email_sent = self.send_assignment_email(rfq, assign_to) if assign_to else False

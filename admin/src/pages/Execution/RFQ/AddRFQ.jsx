@@ -15,7 +15,7 @@ const AddRFQ = () => {
   const [products, setProducts] = useState([]);
   const [units, setUnits] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
-  const [seriesList, setSeriesList] = useState([]); 
+  const [seriesList, setSeriesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
@@ -67,7 +67,7 @@ const AddRFQ = () => {
             label: `${member.name} (${member.designation})`,
           }))
         );
-        setSeriesList(seriesResponse.data); 
+        setSeriesList(seriesResponse.data);
       } catch (err) {
         console.error("Failed to fetch data:", err);
         setError("Failed to load data.");
@@ -118,9 +118,12 @@ const AddRFQ = () => {
   };
 
   const validateSingleFields = () => {
-    const requiredFields = ["company_name", "address", "phone", "email", "series"];
+    const requiredFields = ["company_name", "address", "phone", "email", "series", "assign_to", "due_date"];
     for (const field of requiredFields) {
       if (!formData[field]) return `${field.replace("_", " ")} is required`;
+    }
+    if (formData.assign_to && isNaN(parseInt(formData.assign_to))) {
+      return "Assign To must be a valid team member";
     }
     return null;
   };
@@ -154,27 +157,28 @@ const AddRFQ = () => {
       }
     }
 
-    if (formData.items.length === 0) {
-      toast.error("Please add at least one item or product.");
-      setIsSubmitting(false);
-      return;
-    }
-
+    console.log("Form Data assign_to:", formData.assign_to); 
     const payload = {
       ...formData,
       assign_to: formData.assign_to ? parseInt(formData.assign_to) : null,
       series: formData.series ? parseInt(formData.series) : null,
       items: formData.items.map((item) => ({
-        item_name: item.item_name || "",
-        product_name: item.product_name || "",
-        quantity: parseFloat(item.quantity) || 0,
-        unit: item.unit || "",
+        item_name: item.item_name || null,
+        product_name: item.product_name || null,
+        quantity: parseFloat(item.quantity) || null,
+        unit: item.unit || null,
       })),
     };
+    console.log("Payload:", payload); 
 
     try {
-      await apiClient.post("/add-rfqs/", payload);
-      toast.success("RFQ created successfully!");
+      if (isEditing) {
+        await apiClient.put(`/add-rfqs/${rfqData.id}/`, payload);
+        toast.success("RFQ updated successfully!");
+      } else {
+        await apiClient.post("/add-rfqs/", payload);
+        toast.success("RFQ created successfully!");
+      }
       navigate("/pre-job/view-rfq");
     } catch (error) {
       console.error("Error submitting RFQ:", error.response?.data || error.message);
@@ -213,12 +217,12 @@ const AddRFQ = () => {
   ];
 
   const stepTwoFields = [
-    { name: "due_date", label: "Due Date", type: "date", required: false, placeholder: "Select Due Date" },
+    { name: "due_date", label: "Due Date", type: "date", required: true, placeholder: "Select Due Date" },
     {
       name: "assign_to",
       label: "Assign To",
       type: "select",
-      required: false,
+      required: true,
       placeholder: "Select Team Member",
       options: teamMembers.map((member) => member.label),
       optionValues: teamMembers.map((member) => member.value),
@@ -287,7 +291,7 @@ const AddRFQ = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <h1 className="text-xl font-semibold text-black">Add RFQ</h1>
+          <h1 className="text-xl font-semibold text-black">{isEditing ? "Edit RFQ" : "Add RFQ"}</h1>
         </div>
       </div>
       <div className="mb-6">

@@ -43,14 +43,14 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
 class QuotationSerializer(serializers.ModelSerializer):
     items = QuotationItemSerializer(many=True)
     rfq = serializers.PrimaryKeyRelatedField(queryset=RFQ.objects.all())
-    purchase_order = PurchaseOrderSerializer(many=True, read_only=True)  # Updated to many=True
+    purchase_order = PurchaseOrderSerializer(many=True, read_only=True)
 
     class Meta:
         model = Quotation
         fields = [
             'id', 'quotation_no', 'created_at', 'rfq', 'company_name', 'address', 'phone', 'email',
             'attention_name', 'attention_phone', 'attention_email', 'items', 'due_date',
-            'current_status', 'when_approved', 'latest_remarks', 'purchase_order'
+            'current_status', 'when_approved', 'latest_remarks', 'purchase_order', 'next_followup_date'
         ]
         read_only_fields = ['quotation_no', 'created_at', 'when_approved']
 
@@ -71,3 +71,25 @@ class QuotationSerializer(serializers.ModelSerializer):
         for item_data in items_data:
             QuotationItem.objects.create(quotation=quotation, **item_data)
         return quotation
+
+    def update(self, instance, validated_data):
+        items_data = validated_data.pop('items', [])
+        instance.company_name = validated_data.get('company_name', instance.company_name)
+        instance.address = validated_data.get('address', instance.address)
+        instance.phone = validated_data.get('phone', instance.phone)
+        instance.email = validated_data.get('email', instance.email)
+        instance.attention_name = validated_data.get('attention_name', instance.attention_name)
+        instance.attention_phone = validated_data.get('attention_phone', instance.attention_phone)
+        instance.attention_email = validated_data.get('attention_email', instance.attention_email)
+        instance.due_date = validated_data.get('due_date', instance.due_date)
+        instance.current_status = validated_data.get('current_status', instance.current_status)
+        instance.when_approved = validated_data.get('when_approved', instance.when_approved)
+        instance.latest_remarks = validated_data.get('latest_remarks', instance.latest_remarks)
+        instance.next_followup_date = validated_data.get('next_followup_date', instance.next_followup_date)
+        instance.save()
+
+        instance.items.all().delete()
+        for item_data in items_data:
+            QuotationItem.objects.create(quotation=instance, **item_data)
+
+        return instance

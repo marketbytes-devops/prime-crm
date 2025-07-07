@@ -1,107 +1,68 @@
-import PropTypes from "prop-types";
-
-const ViewCard = ({ singleFields, repeatableFields, title, showRepeatableFields = true, initialData }) => {
-  const getNestedValue = (obj, path) => {
-    return path.split(".").reduce((current, key) => {
-      return current && current[key] !== undefined ? current[key] : null;
-    }, obj);
-  };
-
-  const renderFieldValue = (field, value) => {
-    if (value === null || value === undefined) return "N/A";
-    if (field.type === "date") {
-      return value ? new Date(value).toLocaleDateString() : "N/A";
+const ViewCard = ({ singleFields, repeatableFields, title, showRepeatableFields, initialData }) => {
+  const renderFieldValue = (field, data) => {
+    if (field.name.includes('.')) {
+      const [parent, child] = field.name.split('.');
+      return data[parent]?.[child] || 'N/A';
     }
-    if (field.name === "unit_price") {
-      return value != null ? `$${Number(value).toFixed(2)}` : "N/A";
+    if (field.type === 'date') {
+      return data[field.name] ? new Date(data[field.name]).toLocaleDateString() : 'N/A';
     }
-    return value.toString() || "N/A";
+    return data[field.name] || 'N/A';
   };
-
-  if (!initialData) {
-    return <p className="text-gray-600 text-center">No data available.</p>;
-  }
 
   return (
-    <div className="p-4">
-      <h2 className="text-lg font-semibold mb-4 text-gray-800">{title}</h2>
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-          {singleFields.map((field) => (
-            <div key={field.name} className="flex flex-col">
-              <span className="text-xs font-medium text-gray-600">{field.label}</span>
-              <span className="text-sm text-gray-800">
-                {renderFieldValue(field, getNestedValue(initialData, field.name))}
-              </span>
-            </div>
-          ))}
-        </div>
-        {showRepeatableFields && initialData.items && initialData.items.length > 0 ? (
-          <div className="p-4">
-            <h4 className="text-sm font-medium text-gray-800 mb-2">Items</h4>
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-gray-100 rounded-lg">
-                <thead>
-                  <tr>
-                    {repeatableFields.map((field) => (
-                      <th
-                        key={field.name}
-                        className="px-4 py-2 text-xs font-medium text-gray-600 text-left"
-                      >
-                        {field.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {initialData.items.map((item, index) => (
-                    <tr key={item.id || index} className="border-t">
-                      {repeatableFields.map((field) => (
-                        <td
-                          key={field.name}
-                          className="px-4 py-2 text-sm text-gray-800"
-                        >
-                          {renderFieldValue(field, item[field.name])}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+    <div className="bg-white p-4 rounded-lg shadow-sm">
+      <h3 className="text-md font-semibold mb-2 text-black">{title}</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {singleFields.map((field) => (
+          <div key={field.name} className="flex flex-col">
+            <span className="text-xs font-medium text-gray-600">{field.label}</span>
+            {field.editable ? (
+              <input
+                type={field.type}
+                value={initialData[field.name] || ''}
+                onChange={(e) => {
+                  console.log(`Update ${field.name} to ${e.target.value}`);
+                }}
+                className="w-full p-2 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            ) : (
+              <span className="text-sm text-black">{renderFieldValue(field, initialData)}</span>
+            )}
           </div>
-        ) : showRepeatableFields ? (
-          <p className="text-sm text-gray-600 p-4">No items found.</p>
-        ) : null}
+        ))}
       </div>
+      {showRepeatableFields && repeatableFields.length > 0 && (
+        <div className="mt-4">
+          <h4 className="text-md font-semibold mb-2 text-black">Items</h4>
+          <table className="min-w-full bg-gray-100 rounded-lg">
+            <thead>
+              <tr>
+                {repeatableFields.map((field) => (
+                  <th key={field.name} className="px-4 py-2 text-xs font-medium text-gray-600 text-left">
+                    {field.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {initialData.items.map((item, index) => (
+                <tr key={index} className="border-t">
+                  {repeatableFields.map((field) => (
+                    <td key={field.name} className="px-4 py-2 text-sm text-gray-800">
+                      {field.name === 'unit_price' || field.name === 'total_price'
+                        ? `$${Number(item[field.name] || 0).toFixed(2)}`
+                        : item[field.name] || 'N/A'}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
-};
-
-ViewCard.propTypes = {
-  singleFields: PropTypes.arrayOf(
-    PropTypes.shape({
-      name: PropTypes.string.isRequired,
-      label: PropTypes.string.isRequired,
-      type: PropTypes.string,
-      required: PropTypes.bool,
-      placeholder: PropTypes.string,
-      options: PropTypes.arrayOf(PropTypes.string),
-    })
-  ).isRequired,
-  repeatableFields: PropTypes.arrayOf(
-    PropTypes.shape({
-      name: PropTypes.string.isRequired,
-      label: PropTypes.string.isRequired,
-      type: PropTypes.string,
-      required: PropTypes.bool,
-      placeholder: PropTypes.string,
-      options: PropTypes.arrayOf(PropTypes.string),
-    })
-  ).isRequired,
-  title: PropTypes.string.isRequired,
-  showRepeatableFields: PropTypes.bool,
-  initialData: PropTypes.object,
 };
 
 export default ViewCard;

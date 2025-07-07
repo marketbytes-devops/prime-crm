@@ -16,6 +16,7 @@ class Quotation(models.Model):
     current_status = models.CharField(max_length=50, default="Pending")
     when_approved = models.DateField(null=True, blank=True)
     latest_remarks = models.TextField(null=True, blank=True)
+    next_followup_date = models.DateField(null=True, blank=True)  
 
     def __str__(self):
         return self.quotation_no
