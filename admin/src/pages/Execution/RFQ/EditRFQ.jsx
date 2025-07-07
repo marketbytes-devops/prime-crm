@@ -14,7 +14,7 @@ const EditRFQ = () => {
   const [products, setProducts] = useState([]);
   const [units, setUnits] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
-  const [seriesList, setSeriesList] = useState([]); 
+  const [seriesList, setSeriesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
@@ -34,11 +34,11 @@ const EditRFQ = () => {
         const [rfqResponse, rfqChannelsResponse, itemsResponse, productsResponse, unitsResponse, teamResponse, seriesResponse] = await Promise.all([
           apiClient.get(`/add-rfqs/${rfqData.id}/`),
           apiClient.get("/rfq-channels/"),
-          apiClient.get("/items/"),
-          apiClient.get("/products/"),
-          apiClient.get("/units/"),
+          apiClient.get("/items/").catch(() => ({ data: [] })), 
+          apiClient.get("/products/").catch(() => ({ data: [] })),
+          apiClient.get("/units/").catch(() => ({ data: [] })), 
           apiClient.get("/teams/"),
-          apiClient.get("/series/"), 
+          apiClient.get("/series/"),
         ]);
 
         const fetchedItems = rfqResponse.data.items?.map((item, index) => ({
@@ -47,7 +47,8 @@ const EditRFQ = () => {
           product_name: item.product_name || "",
           quantity: String(item.quantity) || "",
           unit: item.unit || "",
-        })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }];
+          unit_price: String(item.unit_price) || "",
+        })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "", unit_price: "" }];
 
         const initialFieldTypes = {};
         fetchedItems.forEach((item) => {
@@ -73,9 +74,9 @@ const EditRFQ = () => {
         });
 
         setRfqChannels(rfqChannelsResponse.data.map((channel) => channel.channel_name));
-        setItems(itemsResponse.data.map((item) => item.name));
-        setProducts(productsResponse.data.map((product) => product.name));
-        setUnits(unitsResponse.data.map((unit) => unit.name));
+        setItems(itemsResponse.data.length ? itemsResponse.data.map((item) => item.name) : ["Default Item"]);
+        setProducts(productsResponse.data.length ? productsResponse.data.map((product) => product.name) : ["Default Product"]);
+        setUnits(unitsResponse.data.length ? unitsResponse.data.map((unit) => unit.name) : ["Unit", "Piece", "Box"]);
         setTeamMembers(
           teamResponse.data.map((member) => ({
             value: member.id,
@@ -139,7 +140,7 @@ const EditRFQ = () => {
     const newId = Date.now();
     setFormData((prev) => ({
       ...prev,
-      items: [...prev.items, { id: newId, item_name: "", product_name: "", quantity: "", unit: "" }],
+      items: [...prev.items, { id: newId, item_name: "", product_name: "", quantity: "", unit: "", unit_price: "" }],
     }));
     setEntryFieldTypes((prev) => ({ ...prev, [newId]: "" }));
   };
@@ -204,10 +205,11 @@ const EditRFQ = () => {
       series: formData.series ? parseInt(formData.series) : null,
       items: formData.items.map((item) => ({
         id: item.id,
-        item_name: item.item_name || "",
-        product_name: item.product_name || "",
-        quantity: parseFloat(item.quantity) || 0,
-        unit: item.unit || "",
+        item_name: item.item_name || null,
+        product_name: item.product_name || null,
+        quantity: parseFloat(item.quantity) || null,
+        unit: item.unit || null,
+        unit_price: parseFloat(item.unit_price) || null,
       })),
     };
 
@@ -300,6 +302,15 @@ const EditRFQ = () => {
       placeholder: "Select or Enter Unit",
       options: units,
     },
+    {
+      name: "unit_price",
+      label: "Unit Price",
+      type: "number",
+      required: false,
+      min: 0,
+      step: "0.01",
+      placeholder: "Enter Unit Price",
+    },
   ];
 
   const renderField = (field, entryId = null) => {
@@ -342,6 +353,7 @@ const EditRFQ = () => {
           onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
           placeholder={field.placeholder}
           min={field.min}
+          step={field.step}
           className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
           aria-required={field.required}
         />
@@ -381,7 +393,7 @@ const EditRFQ = () => {
               const fieldType = entryFieldTypes[entry.id] || (entry.item_name ? "item" : entry.product_name ? "product" : "");
               return (
                 <>
-                  <div key={entry.id} className="mb-3 p-3 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
+                  <div key={entry.id} className="mb-3 p-3 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-4 gap-3 items-start">
                     {!fieldType ? (
                       <div className="mb-4">
                         <label htmlFor={`field-type-${entry.id}`} className="block text-xs font-medium text-black mb-1">
@@ -406,6 +418,7 @@ const EditRFQ = () => {
                     )}
                     {renderField(repeatableFields.find((f) => f.name === "quantity"), entry.id)}
                     {renderField(repeatableFields.find((f) => f.name === "unit"), entry.id)}
+                    {renderField(repeatableFields.find((f) => f.name === "unit_price"), entry.id)}
                   </div>
                   <div className="flex items-center justify-end mb-3">
                     <button

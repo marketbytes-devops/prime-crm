@@ -109,7 +109,7 @@ const EditQuotation = () => {
     try {
       await apiClient.patch(`/quotations/${formData.id}/`, payload);
       toast.success("Quotation updated successfully!");
-      navigate("/pre-job/view-quotation", { state: { refresh: true, quotationId: formData.id } });
+      navigate("/pre-job/quotation", { state: { refresh: true, quotationId: formData.id } });
     } catch (err) {
       console.error("Failed to update quotation:", err);
       toast.error("Failed to update quotation: " + (err.response?.data?.detail || "Unknown error"));

@@ -27,6 +27,7 @@ const ViewRFQ = () => {
         si_no: index + 1,
         current_status: rfq.current_status || "Processing",
         is_past_due: rfq.due_date && new Date(rfq.due_date) < new Date().setHours(0, 0, 0, 0) && rfq.current_status !== "Completed",
+        items: rfq.items || [],
       }));
       setRfqs(updatedRfqs);
       if (selectedRfq) {
@@ -136,7 +137,9 @@ const ViewRFQ = () => {
                 ${isQuotation ? `
                   <th>Unit Price</th>
                   <th>Total Price</th>
-                ` : ""}
+                ` : `
+                  <th>Unit Price</th>
+                `}
               </tr>
             </thead>
             <tbody>
@@ -148,7 +151,9 @@ const ViewRFQ = () => {
                   ${isQuotation ? `
                     <td>$${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}</td>
                     <td>$${item.total_price != null ? Number(item.total_price).toFixed(2) : "0.00"}</td>
-                  ` : ""}
+                  ` : `
+                    <td>$${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "N/A"}</td>
+                  `}
                 </tr>
               `).join("")}
             </tbody>
@@ -158,7 +163,7 @@ const ViewRFQ = () => {
               Total Amount: $${data.items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unit_price || 0), 0).toFixed(2)}
             </div>
           ` : ""}
-        ` : ""}
+        ` : `<p>No items available.</p>`}
         <button class="no-print" onclick="window.print()">Print</button>
       </body>
       </html>
@@ -167,7 +172,6 @@ const ViewRFQ = () => {
     printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.focus();
-    // Delay to ensure content is rendered before printing
     setTimeout(() => {
       printWindow.print();
       printWindow.close();
@@ -186,6 +190,7 @@ const ViewRFQ = () => {
       attention_name: quotationData.attention_name || null,
       attention_phone: quotationData.attention_phone || null,
       attention_email: quotationData.attention_email || null,
+      due_date: quotationData.due_date || null,
       items: quotationData.items.map((item) => ({
         item_name: item.item_name || null,
         product_name: item.product_name || null,
@@ -200,25 +205,24 @@ const ViewRFQ = () => {
       toast.success("Quotation created successfully!");
       const quotation = response.data;
 
-      // Update RFQ items with unit_price and total_price
       setRfqs((prev) =>
         prev.map((rfq) =>
           rfq.id === convertQuotationRfq.id
             ? {
-                ...rfq,
-                items: rfq.items.map((rfqItem) => {
-                  const quotationItem = quotation.items.find(
-                    (qi) => qi.item_name === rfqItem.item_name && qi.product_name === rfqItem.product_name
-                  );
-                  return quotationItem
-                    ? {
-                        ...rfqItem,
-                        unit_price: quotationItem.unit_price,
-                        total_price: quotationItem.total_price,
-                      }
-                    : rfqItem;
-                }),
-              }
+              ...rfq,
+              items: rfq.items.map((rfqItem) => {
+                const quotationItem = quotation.items.find(
+                  (qi) => qi.item_name === rfqItem.item_name && qi.product_name === rfqItem.product_name
+                );
+                return quotationItem
+                  ? {
+                    ...rfqItem,
+                    unit_price: quotationItem.unit_price,
+                    total_price: quotationItem.total_price,
+                  }
+                  : rfqItem;
+              }),
+            }
             : rfq
         )
       );
@@ -231,26 +235,25 @@ const ViewRFQ = () => {
             );
             return quotationItem
               ? {
-                  ...rfqItem,
-                  unit_price: quotationItem.unit_price,
-                  total_price: quotationItem.total_price,
-                }
+                ...rfqItem,
+                unit_price: quotationItem.unit_price,
+                total_price: quotationItem.total_price,
+              }
               : rfqItem;
           }),
         }));
       }
 
-      // Trigger print for the quotation
       handlePrint(quotation, true);
-
-      // Navigate to ViewQuotation
-      navigate("/pre-job/view-quotation", { state: { quotationId: quotation.id } });
-
+      navigate("/pre-job/quotation", { state: { quotationId: quotation.id } });
       setConvertQuotationRfq(null);
       setQuotationData(null);
     } catch (err) {
       console.error("Failed to create quotation:", err);
-      toast.error("Failed to create quotation: " + (err.response?.data?.quotation_no || "Unknown error"));
+      const errorMessage = err.response?.data?.quotation_no
+        ? err.response.data.quotation_no
+        : err.response?.data?.detail || "Unknown error";
+      toast.error("Failed to create quotation: " + errorMessage);
     }
   };
 
@@ -287,14 +290,12 @@ const ViewRFQ = () => {
     { name: "quantity", label: "Quantity" },
     { name: "unit", label: "Unit" },
     { name: "unit_price", label: "Unit Price" },
-    { name: "total_price", label: "Total Price" },
   ];
 
   const getRepeatableFields = (items) => {
     const hasItems = items.some((item) => item.item_name && item.item_name.trim() !== "");
     const hasProducts = items.some((item) => item.product_name && item.product_name.trim() !== "");
     const hasUnitPrice = items.some((item) => item.unit_price != null);
-    const hasTotalPrice = items.some((item) => item.total_price != null);
 
     return repeatableFields.filter((field) => {
       return (
@@ -302,8 +303,7 @@ const ViewRFQ = () => {
         (hasProducts && field.name === "product_name") ||
         field.name === "quantity" ||
         field.name === "unit" ||
-        (hasUnitPrice && field.name === "unit_price") ||
-        (hasTotalPrice && field.name === "total_price")
+        (hasUnitPrice && field.name === "unit_price")
       );
     });
   };
@@ -329,14 +329,14 @@ const ViewRFQ = () => {
       const response = await apiClient.put(`/add-rfqs/${rfqId}/`, { current_status: newStatus });
       const updatedRfq = response.data;
       setRfqs((prev) =>
-        prev.map((rfq) => (rfq.id === rfqId ? { ...rfq, current_status: updatedRfq.current_status, is_past_due: updatedRfq.current_status !== "Completed" && new Date(rfq.due_date) < new Date().setHours(0, 0, 0, 0) } : rfq))
+        prev.map((rfq) => (rfq.id === rfqId ? { ...rfq, current_status: updatedRfq.current_status, is_past_due: updatedRfq.current_status !== "Completed" && new Date(rfq.due_date) < new Date().setHours(0, 0, 0, 0), items: updatedRfq.items || [] } : rfq))
       );
       if (selectedRfq && selectedRfq.id === rfqId) {
-        setSelectedRfq((prev) => ({ ...prev, current_status: updatedRfq.current_status, is_past_due: updatedRfq.current_status !== "Completed" && new Date(prev.due_date) < new Date().setHours(0, 0, 0, 0) }));
+        setSelectedRfq((prev) => ({ ...prev, current_status: updatedRfq.current_status, is_past_due: updatedRfq.current_status !== "Completed" && new Date(prev.due_date) < new Date().setHours(0, 0, 0, 0), items: updatedRfq.items || [] }));
       }
       if (convertQuotationRfq && convertQuotationRfq.id === rfqId) {
-        setConvertQuotationRfq((prev) => ({ ...prev, current_status: updatedRfq.current_status, is_past_due: updatedRfq.current_status !== "Completed" && new Date(prev.due_date) < new Date().setHours(0, 0, 0, 0) }));
-        setQuotationData((prev) => ({ ...prev, current_status: updatedRfq.current_status }));
+        setConvertQuotationRfq((prev) => ({ ...prev, current_status: updatedRfq.current_status, is_past_due: updatedRfq.current_status !== "Completed" && new Date(prev.due_date) < new Date().setHours(0, 0, 0, 0), items: updatedRfq.items || [] }));
+        setQuotationData((prev) => ({ ...prev, current_status: updatedRfq.current_status, items: updatedRfq.items || [] }));
       }
       toast.success(`Status changed to ${newStatus}`);
     } catch (err) {
@@ -484,20 +484,20 @@ const ViewRFQ = () => {
               title={
                 selectedRfq.items && selectedRfq.items.length > 0
                   ? (() => {
-                      const hasItems = selectedRfq.items.some(
-                        (item) => item.item_name && item.item_name.trim() !== ""
-                      );
-                      const hasProducts = selectedRfq.items.some(
-                        (item) => item.product_name && item.product_name.trim() !== ""
-                      );
-                      return hasItems && hasProducts
-                        ? "Items & Products"
-                        : hasItems
+                    const hasItems = selectedRfq.items.some(
+                      (item) => item.item_name && item.item_name.trim() !== ""
+                    );
+                    const hasProducts = selectedRfq.items.some(
+                      (item) => item.product_name && item.product_name.trim() !== ""
+                    );
+                    return hasItems && hasProducts
+                      ? "Items & Products"
+                      : hasItems
                         ? "Items"
                         : hasProducts
-                        ? "Products"
-                        : "";
-                    })()
+                          ? "Products"
+                          : "";
+                  })()
                   : ""
               }
               showRepeatableFields={selectedRfq.items && selectedRfq.items.length > 0}
@@ -585,9 +585,6 @@ const ViewRFQ = () => {
                           step="0.01"
                           placeholder="Enter Unit Price"
                         />
-                      </td>
-                      <td className="px-4 py-2 text-sm text-gray-800">
-                        ${item.total_price != null ? Number(item.total_price).toFixed(2) : "0.00"}
                       </td>
                     </tr>
                   ))}

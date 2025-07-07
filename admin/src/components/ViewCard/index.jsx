@@ -12,8 +12,8 @@ const ViewCard = ({ singleFields, repeatableFields, title, showRepeatableFields 
     if (field.type === "date") {
       return value ? new Date(value).toLocaleDateString() : "N/A";
     }
-    if (field.name === "total_price" || field.name === "unit_price") {
-      return value ? `$${Number(value).toFixed(2)}` : "$0.00";
+    if (field.name === "unit_price") {
+      return value != null ? `$${Number(value).toFixed(2)}` : "N/A";
     }
     return value.toString() || "N/A";
   };

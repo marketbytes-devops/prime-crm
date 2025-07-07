@@ -1,8 +1,7 @@
 from rest_framework import viewsets
-from .models import RFQ, RFQChannel, Client
-from .serializers import RFQSerializer, RFQChannelSerializer, ClientSerializer
+from .models import RFQ, RFQChannel, Client, RFQItem
+from .serializers import RFQSerializer, RFQChannelSerializer, ClientSerializer, RFQItemSerializer
 from rest_framework.permissions import AllowAny
-from series.models import NumberSeries
 
 class RFQViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
@@ -26,6 +25,11 @@ class RFQViewSet(viewsets.ModelViewSet):
         
         return response
 
+class RFQItemViewSet(viewsets.ModelViewSet):
+    permission_classes = [AllowAny]
+    queryset = RFQItem.objects.all()
+    serializer_class = RFQItemSerializer
+    
 class RFQChannelViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     queryset = RFQChannel.objects.all()

@@ -5,6 +5,7 @@ from .models import RFQ, RFQChannel, Client, RFQItem
 from team.models import TeamMember
 from series.models import NumberSeries
 from datetime import date
+from quotation.models import QuotationItem  
 
 class RFQChannelSerializer(serializers.ModelSerializer):
     class Meta:
@@ -208,7 +209,7 @@ class RFQSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
-        assign_to = validated_data.get('assign_to')
+        assign_to = validated_data.pop('assign_to')
         series = validated_data.pop('series', None)
         rfq_no = series.get_next_sequence() if series else None
         rfq = RFQ.objects.create(rfq_no=rfq_no, series=series, **validated_data)
@@ -223,8 +224,10 @@ class RFQSerializer(serializers.ModelSerializer):
         items_data = validated_data.pop('items', [])
         assign_to = validated_data.get('assign_to')
         series = validated_data.get('series', instance.series)
+
         if not instance.rfq_no and series:
             instance.rfq_no = series.get_next_sequence()
+
         instance.company_name = validated_data.get('company_name', instance.company_name)
         instance.reference = validated_data.get('reference', instance.reference)
         instance.address = validated_data.get('address', instance.address)
@@ -243,9 +246,35 @@ class RFQSerializer(serializers.ModelSerializer):
         instance.items.all().delete()
         for item_data in items_data:
             RFQItem.objects.create(rfq=instance, **item_data)
+
+        if hasattr(instance, 'quotation'):
+            quotation = instance.quotation
+            quotation.company_name = instance.company_name
+            quotation.address = instance.address
+            quotation.phone = instance.phone
+            quotation.email = instance.email
+            quotation.attention_name = instance.attention_name
+            quotation.attention_phone = instance.attention_phone
+            quotation.attention_email = instance.attention_email
+            quotation.due_date = instance.due_date
+            quotation.save()
+
+            quotation.items.all().delete()
+            for item_data in items_data:
+                QuotationItem.objects.create(
+                    quotation=quotation,
+                    item_name=item_data.get('item_name'),
+                    product_name=item_data.get('product_name'),
+                    quantity=item_data.get('quantity'),
+                    unit=item_data.get('unit'),
+                    unit_price=item_data.get('unit_price'),
+                    total_price=(item_data.get('quantity') or 0) * (item_data.get('unit_price') or 0)
+                )
+
         email_sent = False
         if assign_to and (not instance.assign_to or instance.assign_to.id != assign_to.id):
             email_sent = self.send_assignment_email(instance, assign_to)
+
         instance.email_sent = email_sent
         instance.save()
         return instance
