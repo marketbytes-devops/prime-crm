@@ -63,11 +63,14 @@ const ViewQuotation = () => {
         const newQuotation = updatedQuotations.find((q) => q.id === location.state.quotationId);
         if (newQuotation) {
           setSelectedQuotation(newQuotation);
+        } else {
+          setSelectedQuotation(null);
         }
       }
     } catch (err) {
       console.error("Failed to fetch quotations:", err);
-      setError("Failed to load quotations.");
+      setError("Failed to load quotations: " + (err.response?.data?.detail || err.message));
+      toast.error("Failed to load quotations.");
     } finally {
       setLoading(false);
     }
@@ -99,6 +102,160 @@ const ViewQuotation = () => {
     return followupDate.toISOString().split("T")[0];
   };
 
+  const updateStatus = async (quotationId, newStatus) => {
+    try {
+      setLoading(true);
+      const quotationToUpdate = quotations.find((q) => q.id === quotationId) || selectedQuotation;
+      if (!quotationToUpdate) {
+        throw new Error("Quotation not found in state.");
+      }
+
+      // Prepare payload with required fields
+      const payload = {
+        current_status: newStatus,
+        rfq: quotationToUpdate.rfq || null, // Use existing RFQ ID or null if not present
+        items: quotationToUpdate.items
+          ? quotationToUpdate.items.map((item) => ({
+              id: item.id || null, // Include item ID if it exists
+              item_name: item.item_name || null,
+              product_name: item.product_name || null,
+              quantity: item.quantity || 1, // Default to 1 if null, per validation
+              unit: item.unit || null,
+              unit_price: item.unit_price || 0.00, // Default to 0.00 if null, per validation
+              total_price: item.total_price || (item.quantity || 1) * (item.unit_price || 0.00), // Recalculate if needed
+            }))
+          : [], // Empty array if no items, though backend might reject this
+      };
+      console.log("Updating quotation status with payload:", payload);
+
+      // Attempt PUT request
+      const response = await apiClient.put(`/quotations/${quotationId}/`, payload);
+      console.log("API response:", response.data);
+      const updatedQuotation = response.data;
+
+      // Update state with the response data
+      setQuotations((prev) =>
+        prev.map((q) =>
+          q.id === quotationId
+            ? {
+                ...q,
+                current_status: updatedQuotation.current_status,
+                is_due_reminder:
+                  updatedQuotation.current_status === "Approved" &&
+                  (!updatedQuotation.purchase_order || updatedQuotation.purchase_order.length === 0) &&
+                  new Date(updatedQuotation.due_date) < new Date().setHours(0, 0, 0, 0),
+              }
+            : q
+        )
+      );
+
+      if (selectedQuotation && selectedQuotation.id === quotationId) {
+        setSelectedQuotation((prev) => ({
+          ...prev,
+          current_status: updatedQuotation.current_status,
+          is_due_reminder:
+            updatedQuotation.current_status === "Approved" &&
+            (!updatedQuotation.purchase_order || updatedQuotation.purchase_order.length === 0) &&
+            new Date(updatedQuotation.due_date) < new Date().setHours(0, 0, 0, 0),
+        }));
+      }
+
+      if (convertPurchaseOrder && convertPurchaseOrder.id === quotationId) {
+        setConvertPurchaseOrder((prev) => ({
+          ...prev,
+          current_status: updatedQuotation.current_status,
+          is_due_reminder:
+            updatedQuotation.current_status === "Approved" &&
+            (!updatedQuotation.purchase_order || updatedQuotation.purchase_order.length === 0) &&
+            new Date(updatedQuotation.due_date) < new Date().setHours(0, 0, 0, 0),
+        }));
+        setPurchaseOrderData((prev) => ({
+          ...prev,
+          current_status: updatedQuotation.current_status,
+        }));
+      }
+
+      toast.success(`Status changed to ${newStatus}`);
+    } catch (err) {
+      console.error("Failed to update quotation status:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
+      // Fallback to PATCH if PUT fails (optional, based on backend support)
+      if (err.response?.status === 400 && err.response?.data?.rfq && err.response?.data?.items) {
+        try {
+          const patchPayload = { current_status: newStatus };
+          console.log("Falling back to PATCH with payload:", patchPayload);
+          const patchResponse = await apiClient.patch(`/quotations/${quotationId}/`, patchPayload);
+          console.log("PATCH API response:", patchResponse.data);
+          const patchedQuotation = patchResponse.data;
+
+          setQuotations((prev) =>
+            prev.map((q) =>
+              q.id === quotationId
+                ? {
+                    ...q,
+                    current_status: patchedQuotation.current_status,
+                    is_due_reminder:
+                      patchedQuotation.current_status === "Approved" &&
+                      (!patchedQuotation.purchase_order || patchedQuotation.purchase_order.length === 0) &&
+                      new Date(patchedQuotation.due_date) < new Date().setHours(0, 0, 0, 0),
+                  }
+                : q
+            )
+          );
+
+          if (selectedQuotation && selectedQuotation.id === quotationId) {
+            setSelectedQuotation((prev) => ({
+              ...prev,
+              current_status: patchedQuotation.current_status,
+              is_due_reminder:
+                patchedQuotation.current_status === "Approved" &&
+                (!patchedQuotation.purchase_order || patchedQuotation.purchase_order.length === 0) &&
+                new Date(patchedQuotation.due_date) < new Date().setHours(0, 0, 0, 0),
+            }));
+          }
+
+          if (convertPurchaseOrder && convertPurchaseOrder.id === quotationId) {
+            setConvertPurchaseOrder((prev) => ({
+              ...prev,
+              current_status: patchedQuotation.current_status,
+              is_due_reminder:
+                patchedQuotation.current_status === "Approved" &&
+                (!patchedQuotation.purchase_order || patchedQuotation.purchase_order.length === 0) &&
+                new Date(patchedQuotation.due_date) < new Date().setHours(0, 0, 0, 0),
+            }));
+            setPurchaseOrderData((prev) => ({
+              ...prev,
+              current_status: patchedQuotation.current_status,
+            }));
+          }
+
+          toast.success(`Status changed to ${newStatus} (via PATCH)`);
+          return;
+        } catch (patchErr) {
+          console.error("Failed to update quotation status with PATCH:", {
+            message: patchErr.message,
+            response: patchErr.response?.data,
+            status: patchErr.response?.status,
+          });
+        }
+      }
+      toast.error(
+        `Failed to update status: ${
+          err.response?.data?.detail ||
+          err.response?.data?.current_status?.[0] ||
+          err.response?.data?.rfq?.[0] ||
+          err.response?.data?.items?.[0] ||
+          err.message
+        }`
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleConvertToPurchaseOrder = (quotation, orderType) => {
     setConvertPurchaseOrder({ ...quotation, orderType });
     setPurchaseOrderData({
@@ -126,10 +283,10 @@ const ViewQuotation = () => {
       items: prev.items.map((item) =>
         item.id === itemId
           ? {
-            ...item,
-            quantity: Math.min(quantity, item.quantity),
-            total_price: (item.unit_price || 0) * Math.min(quantity, item.quantity),
-          }
+              ...item,
+              quantity: Math.min(quantity, item.quantity),
+              total_price: (item.unit_price || 0) * Math.min(quantity, item.quantity),
+            }
           : item
       ),
     }));
@@ -176,7 +333,9 @@ const ViewQuotation = () => {
           <p><strong>Assigned To:</strong> ${quotation.rfq_details?.assign_to_name || "N/A"}</p>
           <p><strong>Designation:</strong> ${quotation.rfq_details?.assign_to_designation || "N/A"}</p>
         </div>
-        ${quotation.items && quotation.items.length > 0 ? `
+        ${
+          quotation.items && quotation.items.length > 0
+            ? `
           <h3>Items & Products</h3>
           <table>
             <thead>
@@ -189,7 +348,9 @@ const ViewQuotation = () => {
               </tr>
             </thead>
             <tbody>
-              ${quotation.items.map((item) => `
+              ${quotation.items
+                .map(
+                  (item) => `
                 <tr>
                   <td>${item.item_name || item.product_name || "N/A"}</td>
                   <td>${item.quantity || "N/A"}</td>
@@ -197,21 +358,33 @@ const ViewQuotation = () => {
                   <td>$${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}</td>
                   <td>$${item.total_price != null ? Number(item.total_price).toFixed(2) : "0.00"}</td>
                 </tr>
-              `).join("")}
+              `
+                )
+                .join("")}
             </tbody>
           </table>
           <div class="total">
-            Total Amount: $${quotation.items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unit_price || 0), 0).toFixed(2)}
+            Total Amount: $${quotation.items
+              .reduce((sum, item) => sum + (item.quantity || 0) * (item.unit_price || 0), 0)
+              .toFixed(2)}
           </div>
-        ` : ""}
-        ${quotation.purchase_order && quotation.purchase_order.length > 0 ? `
+        `
+            : ""
+        }
+        ${
+          quotation.purchase_order && quotation.purchase_order.length > 0
+            ? `
           <h3>Purchase Orders</h3>
-          ${quotation.purchase_order.map((po, index) => `
+          ${quotation.purchase_order
+            .map(
+              (po, index) => `
             <div style="margin-top: 20px;">
               <h4>Purchase Order #${index + 1}</h4>
               <p><strong>Client PO Number:</strong> ${po.client_po_number || "N/A"}</p>
               <p><strong>Order Type:</strong> ${po.order_type || "N/A"}</p>
-              <p><strong>Created At:</strong> ${po.created_at ? new Date(po.created_at).toLocaleDateString() : "N/A"}</p>
+              <p><strong>Created At:</strong> ${
+                po.created_at ? new Date(po.created_at).toLocaleDateString() : "N/A"
+              }</p>
               <table>
                 <thead>
                   <tr>
@@ -222,19 +395,27 @@ const ViewQuotation = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  ${po.items.map((item) => `
+                  ${po.items
+                    .map(
+                      (item) => `
                     <tr>
                       <td>${item.item_name || item.product_name || "N/A"}</td>
                       <td>${item.quantity || "N/A"}</td>
                       <td>${item.unit || "N/A"}</td>
                       <td>$${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}</td>
                     </tr>
-                  `).join("")}
+                  `
+                    )
+                    .join("")}
                 </tbody>
               </table>
             </div>
-          `).join("")}
-        ` : ""}
+          `
+            )
+            .join("")}
+        `
+            : ""
+        }
         <button class="no-print" onclick="window.print()">Print</button>
       </body>
       </html>
@@ -256,13 +437,18 @@ const ViewQuotation = () => {
     formData.append("quotation", convertPurchaseOrder.id);
     formData.append("client_po_number", purchaseOrderData.client_po_number || "");
     formData.append("order_type", convertPurchaseOrder.orderType);
-    formData.append("items", JSON.stringify(purchaseOrderData.items.map((item) => ({
-      item_name: item.item_name || null,
-      product_name: item.product_name || null,
-      quantity: item.quantity,
-      unit: item.unit || null,
-      unit_price: item.unit_price || null,
-    }))));
+    formData.append(
+      "items",
+      JSON.stringify(
+        purchaseOrderData.items.map((item) => ({
+          item_name: item.item_name || null,
+          product_name: item.product_name || null,
+          quantity: item.quantity,
+          unit: item.unit || null,
+          unit_price: item.unit_price || null,
+        }))
+      )
+    );
     if (purchaseOrderData.po_file) {
       formData.append("po_file", purchaseOrderData.po_file);
     }
@@ -279,6 +465,13 @@ const ViewQuotation = () => {
             : q
         )
       );
+      if (selectedQuotation && selectedQuotation.id === convertPurchaseOrder.id) {
+        setSelectedQuotation((prev) => ({
+          ...prev,
+          purchase_order: [...(prev.purchase_order || []), response.data],
+          current_status: "PO Created",
+        }));
+      }
       setConvertPurchaseOrder(null);
       setPurchaseOrderData(null);
       fetchQuotations();
@@ -298,29 +491,7 @@ const ViewQuotation = () => {
       setConvertPurchaseOrder(null);
     } catch (err) {
       console.error("Failed to delete quotation:", err);
-      toast.error("Failed to delete quotation.");
-    }
-  };
-
-  const updateStatus = async (quotationId, newStatus) => {
-    try {
-      const response = await apiClient.put(`/quotations/${quotationId}/`, {
-        current_status: newStatus,
-      });
-      setQuotations((prev) =>
-        prev.map((q) =>
-          q.id === quotationId
-            ? { ...q, current_status: response.data.current_status }
-            : q
-        )
-      );
-      if (selectedQuotation?.id === quotationId) {
-        setSelectedQuotation((prev) => ({ ...prev, current_status: response.data.current_status }));
-      }
-      toast.success(`Status changed to ${newStatus}`);
-    } catch (err) {
-      console.error("Failed to update status:", err);
-      toast.error("Failed to update status.");
+      toast.error("Failed to delete quotation: " + (err.response?.data?.detail || "Unknown error"));
     }
   };
 
@@ -340,7 +511,7 @@ const ViewQuotation = () => {
       toast.success("Remark added successfully!");
     } catch (err) {
       console.error("Failed to add remark:", err);
-      toast.error("Failed to add remark.");
+      toast.error("Failed to add remark: " + (err.response?.data?.detail || "Unknown error"));
     }
   };
 
@@ -471,6 +642,7 @@ const ViewQuotation = () => {
                         value={quotation.current_status || "Pending"}
                         onChange={(e) => updateStatus(quotation.id, e.target.value)}
                         className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        disabled={loading}
                       >
                         <option value="Pending">Pending</option>
                         <option value="Approved">Approved</option>
@@ -546,7 +718,9 @@ const ViewQuotation = () => {
           <button
             key={page}
             onClick={() => paginate(page)}
-            className={`px-3 py-1 rounded ${currentPage === page ? "bg-indigo-500 text-white" : "bg-gray-200 text-black hover:bg-gray-300"}`}
+            className={`px-3 py-1 rounded ${
+              currentPage === page ? "bg-indigo-500 text-white" : "bg-gray-200 text-black hover:bg-gray-300"
+            }`}
           >
             {page}
           </button>
@@ -582,20 +756,20 @@ const ViewQuotation = () => {
               title={
                 selectedQuotation.items && selectedQuotation.items.length > 0
                   ? (() => {
-                    const hasItems = selectedQuotation.items.some(
-                      (item) => item.item_name && item.item_name.trim() !== ""
-                    );
-                    const hasProducts = selectedQuotation.items.some(
-                      (item) => item.product_name && item.product_name.trim() !== ""
-                    );
-                    return hasItems && hasProducts
-                      ? "Items & Products"
-                      : hasItems
+                      const hasItems = selectedQuotation.items.some(
+                        (item) => item.item_name && item.item_name.trim() !== ""
+                      );
+                      const hasProducts = selectedQuotation.items.some(
+                        (item) => item.product_name && item.product_name.trim() !== ""
+                      );
+                      return hasItems && hasProducts
+                        ? "Items & Products"
+                        : hasItems
                         ? "Items"
                         : hasProducts
-                          ? "Products"
-                          : "";
-                  })()
+                        ? "Products"
+                        : "";
+                    })()
                   : ""
               }
               showRepeatableFields={selectedQuotation.items && selectedQuotation.items.length > 0}
@@ -657,7 +831,8 @@ const ViewQuotation = () => {
         <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50 transition-opacity duration-300">
           <div className="scale-80 bg-white rounded-lg shadow-sm p-6 w-full max-w-2xl">
             <h3 className="text-lg font-semibold mb-3 text-black border-b pb-2">
-              Convert Quotation #{convertPurchaseOrder.quotation_no} to {convertPurchaseOrder.orderType === "full" ? "Full" : "Partial"} Purchase Order
+              Convert Quotation #{convertPurchaseOrder.quotation_no} to{" "}
+              {convertPurchaseOrder.orderType === "full" ? "Full" : "Partial"} Purchase Order
             </h3>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700">
@@ -678,7 +853,7 @@ const ViewQuotation = () => {
             </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700">
-                Upload PO Document (Optional)
+                Upload PO File
               </label>
               <input
                 type="file"
@@ -687,64 +862,30 @@ const ViewQuotation = () => {
               />
             </div>
             {convertPurchaseOrder.orderType === "partial" && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full bg-gray-100 rounded-lg">
-                  <thead>
-                    <tr>
-                      {repeatableFields.map((field) => (
-                        <th
-                          key={field.name}
-                          className="px-4 py-2 text-xs font-medium text-gray-600 text-left"
-                        >
-                          {field.label}
-                          {field.name === "quantity" && (
-                            <span className="ml-1 text-xs text-gray-500">(Editable)</span>
-                          )}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {purchaseOrderData.items.map((item, index) => (
-                      <tr key={item.id || index} className="border-t">
-                        <td className="px-4 py-2 text-sm text-gray-800">
-                          {item.item_name || "N/A"}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-800">
-                          {item.product_name || "N/A"}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-800">
-                          <input
-                            type="number"
-                            value={item.quantity || ""}
-                            onChange={(e) => handlePoQuantityChange(item.id, e.target.value)}
-                            className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                            min="0"
-                            max={item.quantity}
-                            placeholder="Enter Quantity"
-                          />
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-800">
-                          {item.unit || "N/A"}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-800">
-                          ${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-800">
-                          ${item.total_price != null ? Number(item.total_price).toFixed(2) : "0.00"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="mb-4">
+                <h4 className="text-md font-semibold mb-2 text-black">Items</h4>
+                {purchaseOrderData.items.map((item) => (
+                  <div key={item.id} className="flex items-center space-x-2 mb-2">
+                    <span className="text-sm text-black">{item.item_name || item.product_name || "N/A"}</span>
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => handlePoQuantityChange(item.id, e.target.value)}
+                      className="w-20 p-1 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      min="0"
+                      max={item.quantity}
+                    />
+                    <span className="text-sm text-black">{item.unit || "N/A"}</span>
+                  </div>
+                ))}
               </div>
             )}
-            <div className="mt-4 flex justify-end space-x-3">
+            <div className="flex justify-end space-x-2">
               <button
                 onClick={handleSavePurchaseOrder}
-                className="bg-indigo-500 text-white px-3 py-2 rounded hover:bg-indigo-600 transition-colors duration-200"
+                className="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 transition-colors duration-200 flex items-center"
               >
-                Save Purchase Order
+                <Upload size={16} className="mr-1" /> Save Purchase Order
               </button>
               <button
                 onClick={() => {
