@@ -12,6 +12,7 @@ const ViewQuotation = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [showOrderTypeModal, setShowOrderTypeModal] = useState(false);
   const [convertPurchaseOrder, setConvertPurchaseOrder] = useState(null);
   const [purchaseOrderData, setPurchaseOrderData] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -31,14 +32,6 @@ const ViewQuotation = () => {
               rfqDetails = rfqResponse.data;
             } else {
               console.warn(`No RFQ ID for quotation ${quotation.id}`);
-              rfqDetails = {
-                rfq_no: "N/A",
-                reference: "N/A",
-                rfq_channel: "N/A",
-                assign_to_name: "N/A",
-                assign_to_designation: "N/A",
-                assign_to_email: null,
-              };
             }
           } catch (err) {
             console.error(`Failed to fetch RFQ ${quotation.rfq} for quotation ${quotation.id}:`, err);
@@ -48,7 +41,6 @@ const ViewQuotation = () => {
               rfq_channel: "N/A",
               assign_to_name: "N/A",
               assign_to_designation: "N/A",
-              assign_to_email: null,
             };
           }
           const nextFollowupDate = calculateNextFollowupDate(quotation);
@@ -96,52 +88,19 @@ const ViewQuotation = () => {
   }, [location.state]);
 
   const calculateNextFollowupDate = (quotation) => {
-    if (!quotation.due_date || quotation.when_approved) return null;
+    if (!quotation.due_date) return null;
     const dueDate = new Date(quotation.due_date);
     const now = new Date();
-    now.setHours(0, 0, 0, 0);
     let followupDate = new Date(dueDate);
-
-    if (now <= dueDate) {
-      // Before or on due date: set to 24 hours after due date
-      followupDate.setDate(dueDate.getDate() + 1);
-    } else {
-      // After due date: calculate based on days past due
+    followupDate.setHours(0, 0, 0, 0);
+    if (now > dueDate) {
       const daysPastDue = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24));
-      if (daysPastDue === 1) {
-        // 24 hours after due date
-        followupDate.setDate(dueDate.getDate() + 1);
-      } else if (daysPastDue <= 3) {
-        // 3 days after due date
-        followupDate.setDate(dueDate.getDate() + 3);
-      } else if (daysPastDue <= 7) {
-        // 7 days after due date
-        followupDate.setDate(dueDate.getDate() + 7);
-      } else {
-        // Every 7th day thereafter
-        const cycles = Math.floor((daysPastDue - 7) / 7) + 1;
-        followupDate.setDate(dueDate.getDate() + 7 + cycles * 7);
-      }
+      const cycles = Math.floor(daysPastDue / 7);
+      followupDate.setDate(dueDate.getDate() + (cycles + 1) * 7);
+    } else {
+      followupDate.setDate(dueDate.getDate() + 1);
     }
     return followupDate.toISOString().split("T")[0];
-  };
-
-  const sendDueReminderEmail = async (quotation) => {
-    if (!quotation.is_due_reminder || !quotation.rfq_details.assign_to_email) return;
-    try {
-      await apiClient.post("/quotations/send-due-reminder/", {
-        quotation_id: quotation.id,
-        assign_to_email: quotation.rfq_details.assign_to_email,
-        assign_to_name: quotation.rfq_details.assign_to_name,
-        company_name: quotation.company_name,
-        quotation_no: quotation.quotation_no,
-        due_date: quotation.due_date,
-      });
-      toast.success(`Due reminder email sent for Quotation #${quotation.quotation_no}`);
-    } catch (err) {
-      console.error("Failed to send due reminder email:", err);
-      toast.error("Failed to send due reminder email.");
-    }
   };
 
   const updateStatus = async (quotationId, newStatus) => {
@@ -166,10 +125,11 @@ const ViewQuotation = () => {
               total_price: item.total_price || (item.quantity || 1) * (item.unit_price || 0.00),
             }))
           : [],
-        when_approved: newStatus === "Approved" ? new Date().toISOString().split("T")[0] : null,
       };
+      console.log("Updating quotation status with payload:", payload);
 
       const response = await apiClient.put(`/quotations/${quotationId}/`, payload);
+      console.log("API response:", response.data);
       const updatedQuotation = response.data;
 
       setQuotations((prev) =>
@@ -178,8 +138,6 @@ const ViewQuotation = () => {
             ? {
                 ...q,
                 current_status: updatedQuotation.current_status,
-                when_approved: updatedQuotation.when_approved,
-                next_followup_date: updatedQuotation.when_approved ? null : calculateNextFollowupDate(updatedQuotation),
                 is_due_reminder:
                   updatedQuotation.current_status === "Approved" &&
                   (!updatedQuotation.purchase_order || updatedQuotation.purchase_order.length === 0) &&
@@ -193,8 +151,6 @@ const ViewQuotation = () => {
         setSelectedQuotation((prev) => ({
           ...prev,
           current_status: updatedQuotation.current_status,
-          when_approved: updatedQuotation.when_approved,
-          next_followup_date: updatedQuotation.when_approved ? null : calculateNextFollowupDate(updatedQuotation),
           is_due_reminder:
             updatedQuotation.current_status === "Approved" &&
             (!updatedQuotation.purchase_order || updatedQuotation.purchase_order.length === 0) &&
@@ -206,8 +162,6 @@ const ViewQuotation = () => {
         setConvertPurchaseOrder((prev) => ({
           ...prev,
           current_status: updatedQuotation.current_status,
-          when_approved: updatedQuotation.when_approved,
-          next_followup_date: updatedQuotation.when_approved ? null : calculateNextFollowupDate(updatedQuotation),
           is_due_reminder:
             updatedQuotation.current_status === "Approved" &&
             (!updatedQuotation.purchase_order || updatedQuotation.purchase_order.length === 0) &&
@@ -216,12 +170,7 @@ const ViewQuotation = () => {
         setPurchaseOrderData((prev) => ({
           ...prev,
           current_status: updatedQuotation.current_status,
-          when_approved: updatedQuotation.when_approved,
         }));
-      }
-
-      if (updatedQuotation.is_due_reminder) {
-        await sendDueReminderEmail(updatedQuotation);
       }
 
       toast.success(`Status changed to ${newStatus}`);
@@ -231,6 +180,65 @@ const ViewQuotation = () => {
         response: err.response?.data,
         status: err.response?.status,
       });
+      if (err.response?.status === 400 && err.response?.data?.rfq && err.response?.data?.items) {
+        try {
+          const patchPayload = { current_status: newStatus };
+          console.log("Falling back to PATCH with payload:", patchPayload);
+          const patchResponse = await apiClient.patch(`/quotations/${quotationId}/`, patchPayload);
+          console.log("PATCH API response:", patchResponse.data);
+          const patchedQuotation = patchResponse.data;
+
+          setQuotations((prev) =>
+            prev.map((q) =>
+              q.id === quotationId
+                ? {
+                    ...q,
+                    current_status: patchedQuotation.current_status,
+                    is_due_reminder:
+                      patchedQuotation.current_status === "Approved" &&
+                      (!patchedQuotation.purchase_order || patchedQuotation.purchase_order.length === 0) &&
+                      new Date(patchedQuotation.due_date) < new Date().setHours(0, 0, 0, 0),
+                  }
+                : q
+            )
+          );
+
+          if (selectedQuotation && selectedQuotation.id === quotationId) {
+            setSelectedQuotation((prev) => ({
+              ...prev,
+              current_status: patchedQuotation.current_status,
+              is_due_reminder:
+                patchedQuotation.current_status === "Approved" &&
+                (!patchedQuotation.purchase_order || patchedQuotation.purchase_order.length === 0) &&
+                new Date(patchedQuotation.due_date) < new Date().setHours(0, 0, 0, 0),
+            }));
+          }
+
+          if (convertPurchaseOrder && convertPurchaseOrder.id === quotationId) {
+            setConvertPurchaseOrder((prev) => ({
+              ...prev,
+              current_status: patchedQuotation.current_status,
+              is_due_reminder:
+                patchedQuotation.current_status === "Approved" &&
+                (!patchedQuotation.purchase_order || patchedQuotation.purchase_order.length === 0) &&
+                new Date(patchedQuotation.due_date) < new Date().setHours(0, 0, 0, 0),
+            }));
+            setPurchaseOrderData((prev) => ({
+              ...prev,
+              current_status: patchedQuotation.current_status,
+            }));
+          }
+
+          toast.success(`Status changed to ${newStatus} (via PATCH)`);
+          return;
+        } catch (patchErr) {
+          console.error("Failed to update quotation status with PATCH:", {
+            message: patchErr.message,
+            response: patchErr.response?.data,
+            status: patchErr.response?.status,
+          });
+        }
+      }
       toast.error(
         `Failed to update status: ${
           err.response?.data?.detail ||
@@ -245,46 +253,20 @@ const ViewQuotation = () => {
     }
   };
 
-  const handleManualFollowupDateChange = async (quotationId, newDate) => {
-    try {
-      const quotationToUpdate = quotations.find((q) => q.id === quotationId) || selectedQuotation;
-      if (!quotationToUpdate) {
-        throw new Error("Quotation not found in state.");
-      }
-
-      const payload = {
-        next_followup_date: newDate,
-      };
-
-      await apiClient.patch(`/quotations/${quotationId}/`, payload);
-      setQuotations((prev) =>
-        prev.map((q) =>
-          q.id === quotationId
-            ? { ...q, next_followup_date: newDate }
-            : q
-        )
-      );
-
-      if (selectedQuotation && selectedQuotation.id === quotationId) {
-        setSelectedQuotation((prev) => ({ ...prev, next_followup_date: newDate }));
-      }
-
-      toast.success("Next Followup Date updated successfully!");
-    } catch (err) {
-      console.error("Failed to update followup date:", err);
-      toast.error("Failed to update followup date: " + (err.response?.data?.detail || "Unknown error"));
-    }
+  const handleConvertToPurchaseOrder = (quotation) => {
+    setConvertPurchaseOrder(quotation);
+    setShowOrderTypeModal(true);
   };
 
-  const handleConvertToPurchaseOrder = (quotation, orderType) => {
-    setConvertPurchaseOrder({ ...quotation, orderType });
+  const selectOrderType = (orderType) => {
+    setShowOrderTypeModal(false);
     setPurchaseOrderData({
-      ...quotation,
+      ...convertPurchaseOrder,
       client_po_number: "",
       po_file: null,
-      items: quotation.items.map((item) => ({
+      items: convertPurchaseOrder.items.map((item) => ({
         ...item,
-        quantity: orderType === "partial" ? item.quantity : item.quantity,
+        quantity: orderType === "partial" ? 0 : item.quantity,
       })),
     });
   };
@@ -310,6 +292,57 @@ const ViewQuotation = () => {
           : item
       ),
     }));
+  };
+
+  const handleSavePurchaseOrder = async () => {
+    if (!purchaseOrderData) return;
+
+    const formData = new FormData();
+    formData.append("quotation", convertPurchaseOrder.id);
+    formData.append("client_po_number", purchaseOrderData.client_po_number || "");
+    formData.append("order_type", purchaseOrderData.items.every(item => item.quantity === 0) ? "partial" : "full");
+    formData.append(
+      "items",
+      JSON.stringify(
+        purchaseOrderData.items.map((item) => ({
+          item_name: item.item_name || null,
+          product_name: item.product_name || null,
+          quantity: item.quantity,
+          unit: item.unit || null,
+          unit_price: item.unit_price || null,
+        }))
+      )
+    );
+    if (purchaseOrderData.po_file) {
+      formData.append("po_file", purchaseOrderData.po_file);
+    }
+
+    try {
+      const response = await apiClient.post("/purchase-orders/", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      toast.success("Purchase order created successfully!");
+      setQuotations((prev) =>
+        prev.map((q) =>
+          q.id === convertPurchaseOrder.id
+            ? { ...q, purchase_order: [...(q.purchase_order || []), response.data], current_status: "PO Created" }
+            : q
+        )
+      );
+      if (selectedQuotation && selectedQuotation.id === convertPurchaseOrder.id) {
+        setSelectedQuotation((prev) => ({
+          ...prev,
+          purchase_order: [...(prev.purchase_order || []), response.data],
+          current_status: "PO Created",
+        }));
+      }
+      setConvertPurchaseOrder(null);
+      setPurchaseOrderData(null);
+      fetchQuotations();
+    } catch (err) {
+      console.error("Failed to create purchase order:", err);
+      toast.error("Failed to create purchase order: " + (err.response?.data?.detail || "Unknown error"));
+    }
   };
 
   const handlePrint = (quotation) => {
@@ -345,7 +378,6 @@ const ViewQuotation = () => {
           <p><strong>Created At:</strong> ${quotation.created_at ? new Date(quotation.created_at).toLocaleDateString() : "N/A"}</p>
           <p><strong>Due Date:</strong> ${quotation.due_date ? new Date(quotation.due_date).toLocaleDateString() : "N/A"}</p>
           <p><strong>Status:</strong> ${quotation.current_status || "N/A"}</p>
-          ${quotation.next_followup_date && !quotation.when_approved ? `<p><strong>Next Followup Date:</strong> ${new Date(quotation.next_followup_date).toLocaleDateString()}</p>` : ""}
           <p><strong>Latest Remarks:</strong> ${quotation.latest_remarks || "N/A"}</p>
           <h3>RFQ Details</h3>
           <p><strong>RFQ No:</strong> ${quotation.rfq_details?.rfq_no || "N/A"}</p>
@@ -451,58 +483,6 @@ const ViewQuotation = () => {
     }, 500);
   };
 
-  const handleSavePurchaseOrder = async () => {
-    if (!purchaseOrderData) return;
-
-    const formData = new FormData();
-    formData.append("quotation", convertPurchaseOrder.id);
-    formData.append("client_po_number", purchaseOrderData.client_po_number || "");
-    formData.append("order_type", convertPurchaseOrder.orderType);
-    formData.append(
-      "items",
-      JSON.stringify(
-        purchaseOrderData.items.map((item) => ({
-          item_name: item.item_name || null,
-          product_name: item.product_name || null,
-          quantity: item.quantity,
-          unit: item.unit || null,
-          unit_price: item.unit_price || null,
-        }))
-      )
-    );
-    if (purchaseOrderData.po_file) {
-      formData.append("po_file", purchaseOrderData.po_file);
-    }
-
-    try {
-      const response = await apiClient.post("/purchase-orders/", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      toast.success("Purchase order created successfully!");
-      setQuotations((prev) =>
-        prev.map((q) =>
-          q.id === convertPurchaseOrder.id
-            ? { ...q, purchase_order: [...(q.purchase_order || []), response.data], current_status: "PO Created", next_followup_date: null }
-            : q
-        )
-      );
-      if (selectedQuotation && selectedQuotation.id === convertPurchaseOrder.id) {
-        setSelectedQuotation((prev) => ({
-          ...prev,
-          purchase_order: [...(prev.purchase_order || []), response.data],
-          current_status: "PO Created",
-          next_followup_date: null,
-        }));
-      }
-      setConvertPurchaseOrder(null);
-      setPurchaseOrderData(null);
-      fetchQuotations();
-    } catch (err) {
-      console.error("Failed to create purchase order:", err);
-      toast.error("Failed to create purchase order: " + (err.response?.data?.detail || "Unknown error"));
-    }
-  };
-
   const handleDelete = async (quotationId) => {
     if (!window.confirm("Are you sure you want to delete this quotation?")) return;
     try {
@@ -562,7 +542,8 @@ const ViewQuotation = () => {
     { name: "rfq_details.rfq_no", label: "RFQ No" },
     { name: "rfq_details.assign_to_name", label: "Assigned To" },
     { name: "current_status", label: "Status" },
-    { name: "next_followup_date", label: "Next Followup Date", type: "date", editable: true },
+    { name: "when_approved", label: "When Approved", type: "date" },
+    { name: "next_followup_date", label: "Next Followup Date", type: "date" },
     { name: "latest_remarks", label: "Latest Remarks" },
   ];
 
@@ -577,8 +558,9 @@ const ViewQuotation = () => {
     { name: "attention_email", label: "Attention Email", type: "email" },
     { name: "created_at", label: "Created At", type: "date" },
     { name: "due_date", label: "Due Date", type: "date" },
+    { name: "when_approved", label: "When Approved", type: "date" },
     { name: "current_status", label: "Status", type: "text" },
-    { name: "next_followup_date", label: "Next Followup Date", type: "date", editable: true },
+    { name: "next_followup_date", label: "Next Followup Date", type: "date" },
     { name: "latest_remarks", label: "Latest Remarks", type: "text" },
     { name: "rfq_details.rfq_no", label: "RFQ No", type: "text" },
     { name: "rfq_details.reference", label: "Reference", type: "text" },
@@ -634,7 +616,7 @@ const ViewQuotation = () => {
                   key={field.name}
                   className="px-4 py-2 text-sm font-medium text-black text-left"
                 >
-                  {field.name === "current_status" || field.name === "next_followup_date" ? (
+                  {field.name === "current_status" ? (
                     <div className="flex items-center">
                       {field.label}
                       <span className="ml-1 text-xs text-gray-500">(Editable)</span>
@@ -668,14 +650,6 @@ const ViewQuotation = () => {
                         <option value="Approved">Approved</option>
                         <option value="PO Created">PO Created</option>
                       </select>
-                    ) : field.name === "next_followup_date" && !quotation.when_approved ? (
-                      <input
-                        type="date"
-                        value={quotation.next_followup_date || ""}
-                        onChange={(e) => handleManualFollowupDateChange(quotation.id, e.target.value)}
-                        className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        disabled={loading}
-                      />
                     ) : field.name === "latest_remarks" ? (
                       <input
                         type="text"
@@ -706,20 +680,12 @@ const ViewQuotation = () => {
                     View Details
                   </button>
                   {(!quotation.purchase_order || quotation.purchase_order.length === 0) && (
-                    <>
-                      <button
-                        onClick={() => handleConvertToPurchaseOrder(quotation, "full")}
-                        className="bg-green-500 text-white px-3 py-2 text-sm rounded hover:bg-green-600 transition-colors duration-200 flex items-center"
-                      >
-                        <FileText size={16} className="mr-1" /> Full PO
-                      </button>
-                      <button
-                        onClick={() => handleConvertToPurchaseOrder(quotation, "partial")}
-                        className="bg-green-500 text-white px-3 py-2 text-sm rounded hover:bg-green-600 transition-colors duration-200 flex items-center"
-                      >
-                        <FileText size={16} className="mr-1" /> Partial PO
-                      </button>
-                    </>
+                    <button
+                      onClick={() => handleConvertToPurchaseOrder(quotation)}
+                      className="bg-green-500 text-white px-3 py-2 text-sm rounded hover:bg-green-600 transition-colors duration-200"
+                    >
+                      Convert to PO
+                    </button>
                   )}
                   <button
                     onClick={() => handlePrint(quotation)}
@@ -727,14 +693,6 @@ const ViewQuotation = () => {
                   >
                     <Printer size={16} className="mr-1" /> Print
                   </button>
-                  {quotation.is_due_reminder && (
-                    <button
-                      onClick={() => sendDueReminderEmail(quotation)}
-                      className="bg-yellow-500 text-white px-3 py-2 text-sm rounded hover:bg-yellow-600 transition-colors duration-200 flex items-center"
-                    >
-                      Send Reminder
-                    </button>
-                  )}
                 </td>
               </tr>
             ))}
@@ -852,14 +810,6 @@ const ViewQuotation = () => {
               >
                 <Printer size={16} className="mr-1" /> Print
               </button>
-              {selectedQuotation.is_due_reminder && (
-                <button
-                  onClick={() => sendDueReminderEmail(selectedQuotation)}
-                  className="bg-yellow-500 text-white px-3 py-2 rounded hover:bg-yellow-600 transition-colors duration-200 flex items-center"
-                >
-                  Send Reminder
-                </button>
-              )}
               <button
                 onClick={() => setSelectedQuotation(null)}
                 className="bg-gray-200 text-black px-3 py-2 rounded hover:bg-gray-300 transition-colors duration-200"
@@ -871,17 +821,40 @@ const ViewQuotation = () => {
         </div>
       )}
 
+      {showOrderTypeModal && convertPurchaseOrder && (
+        <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-sm p-4 w-64">
+            <h3 className="text-lg font-semibold mb-3 text-black border-b pb-2">Select Order Type</h3>
+            <button
+              onClick={() => selectOrderType("full")}
+              className="w-full bg-green-500 text-white px-4 py-2 mb-2 rounded hover:bg-green-600 transition-colors duration-200"
+            >
+              Full Order
+            </button>
+            <button
+              onClick={() => selectOrderType("partial")}
+              className="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors duration-200"
+            >
+              Partial Order
+            </button>
+            <button
+              onClick={() => setShowOrderTypeModal(false)}
+              className="w-full bg-gray-200 text-black px-4 py-2 mt-2 rounded hover:bg-gray-300 transition-colors duration-200"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {convertPurchaseOrder && purchaseOrderData && (
         <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50 transition-opacity duration-300">
-          <div className="scale-80 bg-white rounded-lg shadow-sm p-6 w-full max-w-2xl">
+          <div className="bg-white rounded-lg shadow-sm p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-3 text-black border-b pb-2">
-              Convert Quotation #{convertPurchaseOrder.quotation_no} to{" "}
-              {convertPurchaseOrder.orderType === "full" ? "Full" : "Partial"} Purchase Order
+              Convert Quotation #{convertPurchaseOrder.quotation_no} to {purchaseOrderData.items.every(item => item.quantity === 0) ? "Partial" : "Full"} Purchase Order
             </h3>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700">
-                Client PO Number
-              </label>
+              <label className="block text-sm font-medium text-gray-700">Client PO Number</label>
               <input
                 type="text"
                 value={purchaseOrderData.client_po_number}
@@ -896,16 +869,14 @@ const ViewQuotation = () => {
               />
             </div>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700">
-                Upload PO File
-              </label>
+              <label className="block text-sm font-medium text-gray-700">Upload PO File</label>
               <input
                 type="file"
                 onChange={handlePoFileChange}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
-            {convertPurchaseOrder.orderType === "partial" && (
+            {purchaseOrderData.items.every(item => item.quantity === 0) && (
               <div className="mb-4">
                 <h4 className="text-md font-semibold mb-2 text-black">Items</h4>
                 {purchaseOrderData.items.map((item) => (
@@ -929,7 +900,7 @@ const ViewQuotation = () => {
                 onClick={handleSavePurchaseOrder}
                 className="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 transition-colors duration-200 flex items-center"
               >
-                <Upload size={16} client:load className="mr-1" /> Save Purchase Order
+                <Upload size={16} className="mr-1" /> Save Purchase Order
               </button>
               <button
                 onClick={() => {
