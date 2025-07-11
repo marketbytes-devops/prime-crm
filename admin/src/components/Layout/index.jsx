@@ -86,7 +86,7 @@ const Layout = ({ isAuthenticated, setIsAuthenticated }) => {
         <main
           className={`bg-gradient-to-b from-blue-50 via-indigo-50 to-gray-200 flex-1 pt-20 p-6 ${
             isSidebarOpen ? "md:ml-72" : "ml-0"
-          } overflow-auto`} // Added overflow-auto to ensure content is scrollable
+          } overflow-auto`} 
         >
           {loading ? <p>Loading...</p> : <Outlet />}
         </main>
