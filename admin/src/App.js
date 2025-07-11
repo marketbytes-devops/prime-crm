@@ -77,7 +77,7 @@ function App() {
           element: <ViewRFQ />,
         },
         {
-          path: "/pre-job/quotation",
+          path: "/pre-job/view-quotation",
           element: <ViewQuotation />,
         },
         {

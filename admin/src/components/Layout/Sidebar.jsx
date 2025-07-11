@@ -27,7 +27,7 @@ const Sidebar = ({ toggleSidebar }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
-    const preJobPaths = ["/pre-job/add-rfq", "/pre-job/view-rfq", "/pre-job/quotation"];
+    const preJobPaths = ["/pre-job/add-rfq", "/pre-job/view-rfq", "/pre-job/view-quotation"];
     const settingsPaths = [
       "/settings/rfq-channel",
       "/settings/product",
@@ -52,7 +52,7 @@ const Sidebar = ({ toggleSidebar }) => {
       subItems: [
         { to: "/pre-job/add-rfq", label: "Add RFQ", icon: <FilePlus className="w-5 h-5 mr-3" /> },
         { to: "/pre-job/view-rfq", label: "View RFQ", icon: <FileText className="w-5 h-5 mr-3" /> },
-        { to: "/pre-job/quotation", label: "Quotation", icon: <MessageSquareQuote className="w-5 h-5 mr-3" /> },
+        { to: "/pre-job/view-quotation", label: "Quotation", icon: <MessageSquareQuote className="w-5 h-5 mr-3" /> },
       ],
     },
     {

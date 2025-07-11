@@ -50,7 +50,7 @@ class QuotationSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'quotation_no', 'created_at', 'rfq', 'company_name', 'address', 'phone', 'email',
             'attention_name', 'attention_phone', 'attention_email', 'items', 'due_date',
-            'current_status', 'when_approved', 'latest_remarks', 'purchase_order'
+            'current_status', 'when_approved', 'latest_remarks', 'purchase_order', 'next_followup_date'
         ]
         read_only_fields = ['quotation_no', 'created_at', 'when_approved']
 
@@ -73,8 +73,7 @@ class QuotationSerializer(serializers.ModelSerializer):
         return quotation
 
     def update(self, instance, validated_data):
-        # Update scalar fields
-        instance.rfq = validated_data.get('rfq', instance.rfq)
+        items_data = validated_data.pop('items', [])
         instance.company_name = validated_data.get('company_name', instance.company_name)
         instance.address = validated_data.get('address', instance.address)
         instance.phone = validated_data.get('phone', instance.phone)
@@ -86,37 +85,11 @@ class QuotationSerializer(serializers.ModelSerializer):
         instance.current_status = validated_data.get('current_status', instance.current_status)
         instance.when_approved = validated_data.get('when_approved', instance.when_approved)
         instance.latest_remarks = validated_data.get('latest_remarks', instance.latest_remarks)
+        instance.next_followup_date = validated_data.get('next_followup_date', instance.next_followup_date)
         instance.save()
 
-        # Handle nested items
-        items_data = validated_data.get('items', [])
-        existing_items = {item.id: item for item in instance.items.all()}
-        item_ids_to_keep = set()
-
+        instance.items.all().delete()
         for item_data in items_data:
-            item_id = item_data.get('id')
-            if item_id:
-                # Update existing item
-                if item_id in existing_items:
-                    item = existing_items[item_id]
-                    item.item_name = item_data.get('item_name', item.item_name)
-                    item.product_name = item_data.get('product_name', item.product_name)
-                    item.quantity = item_data.get('quantity', item.quantity)
-                    item.unit = item_data.get('unit', item.unit)
-                    item.unit_price = item_data.get('unit_price', item.unit_price)
-                    item.total_price = item.quantity * item.unit_price if item.quantity and item.unit_price else 0
-                    item.save()
-                    item_ids_to_keep.add(item_id)
-                else:
-                    # Create new item if ID is provided but doesn't exist (shouldn't happen with PUT)
-                    QuotationItem.objects.create(quotation=instance, **item_data)
-            else:
-                # Create new item
-                QuotationItem.objects.create(quotation=instance, **item_data)
-
-        # Delete items that were not in the updated data
-        for item_id, item in existing_items.items():
-            if item_id not in item_ids_to_keep:
-                item.delete()
+            QuotationItem.objects.create(quotation=instance, **item_data)
 
         return instance

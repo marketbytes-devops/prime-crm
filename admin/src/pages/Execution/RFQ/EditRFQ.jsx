@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Plus, Trash } from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "../../../helpers/apiClient";
@@ -14,11 +14,9 @@ const EditRFQ = () => {
   const [products, setProducts] = useState([]);
   const [units, setUnits] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
-  const [seriesList, setSeriesList] = useState([]); 
+  const [seriesList, setSeriesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeDropdown, setActiveDropdown] = useState(null);
-  const [entryFieldTypes, setEntryFieldTypes] = useState({});
   const [isPastDue, setIsPastDue] = useState(false);
 
   useEffect(() => {
@@ -34,11 +32,11 @@ const EditRFQ = () => {
         const [rfqResponse, rfqChannelsResponse, itemsResponse, productsResponse, unitsResponse, teamResponse, seriesResponse] = await Promise.all([
           apiClient.get(`/add-rfqs/${rfqData.id}/`),
           apiClient.get("/rfq-channels/"),
-          apiClient.get("/items/"),
-          apiClient.get("/products/"),
-          apiClient.get("/units/"),
+          apiClient.get("/items/").catch(() => ({ data: [] })),
+          apiClient.get("/products/").catch(() => ({ data: [] })),
+          apiClient.get("/units/").catch(() => ({ data: [] })),
           apiClient.get("/teams/"),
-          apiClient.get("/series/"), 
+          apiClient.get("/series/"),
         ]);
 
         const fetchedItems = rfqResponse.data.items?.map((item, index) => ({
@@ -47,12 +45,8 @@ const EditRFQ = () => {
           product_name: item.product_name || "",
           quantity: String(item.quantity) || "",
           unit: item.unit || "",
-        })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "" }];
-
-        const initialFieldTypes = {};
-        fetchedItems.forEach((item) => {
-          initialFieldTypes[item.id] = item.item_name ? "item" : item.product_name ? "product" : "";
-        });
+          unit_price: String(item.unit_price) || "",
+        })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "", unit_price: "" }];
 
         setFormData({
           company_name: rfqResponse.data.company_name || "",
@@ -73,9 +67,9 @@ const EditRFQ = () => {
         });
 
         setRfqChannels(rfqChannelsResponse.data.map((channel) => channel.channel_name));
-        setItems(itemsResponse.data.map((item) => item.name));
-        setProducts(productsResponse.data.map((product) => product.name));
-        setUnits(unitsResponse.data.map((unit) => unit.name));
+        setItems(itemsResponse.data.length ? itemsResponse.data.map((item) => item.name) : ["Default Item"]);
+        setProducts(productsResponse.data.length ? productsResponse.data.map((product) => product.name) : ["Default Product"]);
+        setUnits(unitsResponse.data.length ? unitsResponse.data.map((unit) => unit.name) : ["Unit", "Piece", "Box"]);
         setTeamMembers(
           teamResponse.data.map((member) => ({
             value: member.id,
@@ -83,7 +77,6 @@ const EditRFQ = () => {
           }))
         );
         setSeriesList(seriesResponse.data);
-        setEntryFieldTypes(initialFieldTypes);
 
         const dueDate = new Date(rfqResponse.data.due_date);
         const today = new Date();
@@ -105,7 +98,6 @@ const EditRFQ = () => {
   const handleSingleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    setActiveDropdown(null);
     if (name === "current_status" && value === "Completed") {
       setIsPastDue(false);
     }
@@ -119,29 +111,14 @@ const EditRFQ = () => {
         item.id === entryId ? { ...item, [name]: value } : item
       ),
     }));
-    setActiveDropdown(null);
-  };
-
-  const handleFieldTypeChange = (entryId, value) => {
-    setEntryFieldTypes((prev) => ({ ...prev, [entryId]: value }));
-    setFormData((prev) => ({
-      ...prev,
-      items: prev.items.map((item) =>
-        item.id === entryId
-          ? { ...item, item_name: value === "item" ? item.item_name : "", product_name: value === "product" ? item.product_name : "" }
-          : item
-      ),
-    }));
-    setActiveDropdown(null);
   };
 
   const addFormBlock = () => {
     const newId = Date.now();
     setFormData((prev) => ({
       ...prev,
-      items: [...prev.items, { id: newId, item_name: "", product_name: "", quantity: "", unit: "" }],
+      items: [...prev.items, { id: newId, item_name: "", product_name: "", quantity: "", unit: "", unit_price: "" }],
     }));
-    setEntryFieldTypes((prev) => ({ ...prev, [newId]: "" }));
   };
 
   const removeFormBlock = (entryId) => {
@@ -153,11 +130,6 @@ const EditRFQ = () => {
       ...prev,
       items: prev.items.filter((item) => item.id !== entryId),
     }));
-    setEntryFieldTypes((prev) => {
-      const newFieldTypes = { ...prev };
-      delete newFieldTypes[entryId];
-      return newFieldTypes;
-    });
   };
 
   const validateSingleFields = () => {
@@ -204,10 +176,11 @@ const EditRFQ = () => {
       series: formData.series ? parseInt(formData.series) : null,
       items: formData.items.map((item) => ({
         id: item.id,
-        item_name: item.item_name || "",
-        product_name: item.product_name || "",
-        quantity: parseFloat(item.quantity) || 0,
-        unit: item.unit || "",
+        item_name: item.item_name || null,
+        product_name: item.product_name || null,
+        quantity: parseFloat(item.quantity) || null,
+        unit: item.unit || null,
+        unit_price: parseFloat(item.unit_price) || null,
       })),
     };
 
@@ -300,6 +273,15 @@ const EditRFQ = () => {
       placeholder: "Select or Enter Unit",
       options: units,
     },
+    {
+      name: "unit_price",
+      label: "Unit Price",
+      type: "number",
+      required: false,
+      min: 0,
+      step: "0.01",
+      placeholder: "Enter Unit Price",
+    },
   ];
 
   const renderField = (field, entryId = null) => {
@@ -342,6 +324,7 @@ const EditRFQ = () => {
           onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
           placeholder={field.placeholder}
           min={field.min}
+          step={field.step}
           className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
           aria-required={field.required}
         />
@@ -377,59 +360,35 @@ const EditRFQ = () => {
           </div>
           <div className="mt-4">
             <h2 className="text-lg font-semibold text-black mb-3">Items</h2>
-            {formData.items.map((entry, index) => {
-              const fieldType = entryFieldTypes[entry.id] || (entry.item_name ? "item" : entry.product_name ? "product" : "");
-              return (
-                <>
-                  <div key={entry.id} className="mb-3 p-3 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
-                    {!fieldType ? (
-                      <div className="mb-4">
-                        <label htmlFor={`field-type-${entry.id}`} className="block text-xs font-medium text-black mb-1">
-                          Select Field Type <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          id={`field-type-${entry.id}`}
-                          value={fieldType}
-                          onChange={(e) => handleFieldTypeChange(entry.id, e.target.value)}
-                          className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
-                        >
-                          <option value="" disabled>Select Item or Product</option>
-                          <option value="item">Item</option>
-                          <option value="product">Product</option>
-                        </select>
-                      </div>
-                    ) : (
-                      renderField(
-                        repeatableFields.find((f) => f.name === (fieldType === "item" ? "item_name" : "product_name")),
-                        entry.id
-                      )
-                    )}
-                    {renderField(repeatableFields.find((f) => f.name === "quantity"), entry.id)}
-                    {renderField(repeatableFields.find((f) => f.name === "unit"), entry.id)}
-                  </div>
-                  <div className="flex items-center justify-end mb-3">
-                    <button
-                      type="button"
-                      onClick={() => removeFormBlock(entry.id)}
-                      disabled={formData.items.length === 1}
-                      className={`text-sm px-3 py-2 rounded flex items-center transition-colors duration-200 ${
-                        formData.items.length === 1
-                          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                          : "bg-red-500 text-white hover:bg-red-600"
-                      }`}
-                    >
-                      <Trash size="16" className="mr-1" /> Remove
-                    </button>
-                  </div>
-                </>
-              );
-            })}
+            {formData.items.map((entry) => (
+              <div key={entry.id} className="mb-3 p-3 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-4 gap-3 items-start">
+                {renderField(repeatableFields.find((f) => f.name === "item_name"), entry.id)}
+                {renderField(repeatableFields.find((f) => f.name === "product_name"), entry.id)}
+                {renderField(repeatableFields.find((f) => f.name === "quantity"), entry.id)}
+                {renderField(repeatableFields.find((f) => f.name === "unit"), entry.id)}
+                {renderField(repeatableFields.find((f) => f.name === "unit_price"), entry.id)}
+                <div className="flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={() => removeFormBlock(entry.id)}
+                    disabled={formData.items.length === 1}
+                    className={`text-sm px-3 py-2 rounded flex items-center transition-colors duration-200 ${
+                      formData.items.length === 1
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-red-500 text-white hover:bg-red-600"
+                    }`}
+                  >
+                    <Trash size="16" className="mr-1" /> Remove
+                  </button>
+                </div>
+              </div>
+            ))}
             <button
               type="button"
               onClick={addFormBlock}
               className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200 flex items-center mb-3"
             >
-              <Plus size="16" className="mr-1" /> Add Item
+              <Plus size={16} className="mr-1" /> Add Item
             </button>
           </div>
           <div className="flex justify-end mt-4">

@@ -109,7 +109,7 @@ const EditQuotation = () => {
     try {
       await apiClient.patch(`/quotations/${formData.id}/`, payload);
       toast.success("Quotation updated successfully!");
-      navigate("/pre-job/quotation", { state: { refresh: true, quotationId: formData.id } });
+      navigate("/pre-job/view-quotation", { state: { refresh: true, quotationId: formData.id } });
     } catch (err) {
       console.error("Failed to update quotation:", err);
       toast.error("Failed to update quotation: " + (err.response?.data?.detail || "Unknown error"));
@@ -293,7 +293,7 @@ const EditQuotation = () => {
             <Save size={16} className="mr-1" /> Save
           </button>
           <button
-            onClick={() => navigate("/pre-job/quotation", { state: { refresh: true } })}
+            onClick={() => navigate("/pre-job/view-quotation", { state: { refresh: true } })}
             className="bg-gray-200 text-black px-3 py-2 rounded hover:bg-gray-300 transition-colors duration-200 flex items-center"
           >
             <X size={16} className="mr-1" /> Cancel
