@@ -1,4 +1,3 @@
-// src/components/ViewRFQ.js
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import apiClient from "../../../helpers/apiClient";
@@ -23,7 +22,9 @@ const ViewRFQ = () => {
     try {
       setLoading(true);
       const response = await apiClient.get("/add-rfqs/");
-      const data = Array.isArray(response.data) ? response.data : response.data.results || [];
+      const data = Array.isArray(response.data)
+        ? response.data
+        : response.data.results || [];
       const updatedRfqs = data.map((rfq, index) => ({
         ...rfq,
         si_no: index + 1,
@@ -33,9 +34,12 @@ const ViewRFQ = () => {
           rfq.due_date &&
           new Date(rfq.due_date) < new Date().setHours(0, 0, 0, 0),
       }));
-      setRfqs(updatedRfqs);
+      const sortedRfqs = updatedRfqs.sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      );
+      setRfqs(sortedRfqs);
       if (location.state?.rfqId) {
-        const newRfq = updatedRfqs.find((r) => r.id === location.state.rfqId);
+        const newRfq = sortedRfqs.find((r) => r.id === location.state.rfqId);
         if (newRfq) setSelectedRfq(newRfq);
       }
     } catch (err) {
@@ -89,10 +93,13 @@ const ViewRFQ = () => {
         prev.map((r) =>
           r.id === rfqId
             ? {
-                ...r,
-                current_status: newStatus,
-                is_past_due: newStatus !== "Completed" && r.due_date && new Date(r.due_date) < new Date().setHours(0, 0, 0, 0),
-              }
+              ...r,
+              current_status: newStatus,
+              is_past_due:
+                newStatus !== "Completed" &&
+                r.due_date &&
+                new Date(r.due_date) < new Date().setHours(0, 0, 0, 0),
+            }
             : r
         )
       );
@@ -100,7 +107,10 @@ const ViewRFQ = () => {
         setSelectedRfq((prev) => ({
           ...prev,
           current_status: newStatus,
-          is_past_due: newStatus !== "Completed" && prev.due_date && new Date(prev.due_date) < new Date().setHours(0, 0, 0, 0),
+          is_past_due:
+            newStatus !== "Completed" &&
+            prev.due_date &&
+            new Date(prev.due_date) < new Date().setHours(0, 0, 0, 0),
         }));
       }
       toast.success(`Status changed to ${newStatus}`);
@@ -134,10 +144,13 @@ const ViewRFQ = () => {
       prev.map((item) =>
         item.id === itemId
           ? {
-              ...item,
-              unit_price: unitPrice,
-              error: unitPrice === "" || unitPrice < 0 ? "Unit price must be non-negative" : null,
-            }
+            ...item,
+            unit_price: unitPrice,
+            error:
+              unitPrice === "" || unitPrice < 0
+                ? "Unit price must be non-negative"
+                : null,
+          }
           : item
       )
     );
@@ -208,19 +221,30 @@ const ViewRFQ = () => {
       });
     } catch (err) {
       console.error("Failed to create quotation:", err);
-      let errorMessage = "Failed to create quotation. Please try again or contact support.";
+      let errorMessage =
+        "Failed to create quotation. Please try again or contact support.";
       if (err.response?.data?.detail) {
         errorMessage = err.response.data.detail;
       } else if (err.response?.data?.non_field_errors) {
         errorMessage = err.response.data.non_field_errors.join(", ");
       } else if (err.response?.data?.items) {
-        errorMessage = err.response.data.items.map((item) => item.unit_price || item).join(", ");
+        errorMessage = err.response.data.items
+          .map((item) => item.unit_price || item)
+          .join(", ");
       }
       toast.error(errorMessage);
     }
   };
 
   const handlePrint = (rfq) => {
+    const hasItems = rfq.items.some(
+      (item) => item.item_name && item.item_name.trim() !== ""
+    );
+    const hasProducts = rfq.items.some(
+      (item) => item.product_name && item.product_name.trim() !== ""
+    );
+    const itemLabel = hasItems && !hasProducts ? "Item" : "Product";
+
     const printContent = `
       <!DOCTYPE html>
       <html>
@@ -249,41 +273,42 @@ const ViewRFQ = () => {
           <p><strong>Attention Name:</strong> ${rfq.attention_name || "N/A"}</p>
           <p><strong>Attention Phone:</strong> ${rfq.attention_phone || "N/A"}</p>
           <p><strong>Attention Email:</strong> ${rfq.attention_email || "N/A"}</p>
-          <p><strong>Created At:</strong> ${rfq.created_at ? new Date(rfq.created_at).toLocaleDateString() : "N/A"}</p>
-          <p><strong>Due Date:</strong> ${rfq.due_date ? new Date(rfq.due_date).toLocaleDateString() : "N/A"}</p>
+          <p><strong>Created At:</strong> ${rfq.created_at ? new Date(rfq.created_at).toLocaleDateString() : "N/A"
+      }</p>
+          <p><strong>Due Date:</strong> ${rfq.due_date ? new Date(rfq.due_date).toLocaleDateString() : "N/A"
+      }</p>
           <p><strong>Status:</strong> ${rfq.current_status || "N/A"}</p>
           <p><strong>Assigned To:</strong> ${rfq.assign_to_name || "N/A"}</p>
           <p><strong>RFQ Channel:</strong> ${rfq.rfq_channel || "N/A"}</p>
         </div>
-        ${
-          rfq.items && rfq.items.length > 0
-            ? `
-          <h3>Items & Products</h3>
+        ${rfq.items && rfq.items.length > 0
+        ? `
+          <h3>${hasItems && !hasProducts ? "Items" : "Products"}</h3>
           <table>
             <thead>
               <tr>
-                <th>Item/Product</th>
+                <th>${itemLabel}</th>
                 <th>Quantity</th>
                 <th>Unit</th>
               </tr>
             </thead>
             <tbody>
               ${rfq.items
-                .map(
-                  (item) => `
+          .map(
+            (item) => `
                 <tr>
                   <td>${item.item_name || item.product_name || "N/A"}</td>
                   <td>${item.quantity || "N/A"}</td>
                   <td>${item.unit || "N/A"}</td>
                 </tr>
               `
-                )
-                .join("")}
+          )
+          .join("")}
             </tbody>
           </table>
         `
-            : ""
-        }
+        : ""
+      }
         <button class="no-print" onclick="window.print()">Print</button>
       </body>
       </html>
@@ -336,15 +361,28 @@ const ViewRFQ = () => {
     { name: "rfq_channel", label: "RFQ Channel", type: "text" },
   ];
 
-  const repeatableFields = [
-    { name: "item_name", label: "Item" },
-    { name: "product_name", label: "Product" },
-    { name: "quantity", label: "Quantity" },
-    { name: "unit", label: "Unit" },
-  ];
+  const repeatableFields = (items) => {
+    const hasItems = items.some(
+      (item) => item.item_name && item.item_name.trim() !== ""
+    );
+    const hasProducts = items.some(
+      (item) => item.product_name && item.product_name.trim() !== ""
+    );
+
+    return [
+      ...(hasItems
+        ? [{ name: "item_name", label: "Item" }]
+        : hasProducts
+          ? [{ name: "product_name", label: "Product" }]
+          : [{ name: "item_name", label: "Item" }, { name: "product_name", label: "Product" }]),
+      { name: "quantity", label: "Quantity" },
+      { name: "unit", label: "Unit" },
+    ];
+  };
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
-  const nextPage = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
+  const nextPage = () =>
+    currentPage < totalPages && setCurrentPage(currentPage + 1);
   const prevPage = () => currentPage > 1 && setCurrentPage(currentPage - 1);
   const totalPages = Math.ceil(rfqs.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -353,7 +391,8 @@ const ViewRFQ = () => {
 
   if (loading) return <p className="text-black text-center">Loading...</p>;
   if (error) return <p className="text-red-600 text-center">{error}</p>;
-  if (rfqs.length === 0) return <p className="text-black text-center">No RFQs found.</p>;
+  if (rfqs.length === 0)
+    return <p className="text-black text-center">No RFQs found.</p>;
 
   return (
     <div className="container mx-auto p-4 bg-transparent min-h-screen">
@@ -365,29 +404,37 @@ const ViewRFQ = () => {
               {tableFields.map((field) => (
                 <th
                   key={field.name}
-                  className="px-4 py-2 text-sm font-medium text-black text-left"
+                  className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap"
                 >
                   {field.name === "current_status" ? (
                     <div className="flex items-center">
                       {field.label}
-                      <span className="ml-1 text-xs text-gray-500">(Editable)</span>
+                      <span className="ml-1 text-xs text-gray-500">
+                        (Editable)
+                      </span>
                     </div>
                   ) : (
                     field.label
                   )}
                 </th>
               ))}
-              <th className="px-4 py-2 text-sm font-medium text-black text-left">Actions</th>
+              <th className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
             {currentRfqs.map((rfq) => (
               <tr
                 key={rfq.id}
-                className={`border-t hover:bg-gray-50 ${rfq.is_past_due ? "bg-red-50" : ""}`}
+                className={`border-t hover:bg-gray-50 ${rfq.is_past_due ? "bg-red-50" : ""
+                  }`}
               >
                 {tableFields.map((field) => (
-                  <td key={field.name} className="px-4 py-3 text-sm text-black">
+                  <td
+                    key={field.name}
+                    className="px-4 py-3 text-sm text-black whitespace-nowrap"
+                  >
                     {field.name === "current_status" ? (
                       <select
                         value={rfq.current_status || "Processing"}
@@ -399,16 +446,20 @@ const ViewRFQ = () => {
                         <option value="Completed">Completed</option>
                       </select>
                     ) : field.type === "date" ? (
-                      rfq[field.name] ? new Date(rfq[field.name]).toLocaleDateString() : "N/A"
+                      rfq[field.name]
+                        ? new Date(rfq[field.name]).toLocaleDateString()
+                        : "N/A"
                     ) : (
                       rfq[field.name] || "N/A"
                     )}
                     {field.name === "due_date" && rfq.is_past_due && (
-                      <span className="text-red-600 text-xs ml-2">(Past Due)</span>
+                      <span className="text-red-600 text-xs ml-2">
+                        (Past Due)
+                      </span>
                     )}
                   </td>
                 ))}
-                <td className="px-4 py-3 text-sm text-black flex space-x-2">
+                <td className="px-4 py-3 text-sm text-black flex space-x-2 whitespace-nowrap">
                   <button
                     onClick={() => setSelectedRfq(rfq)}
                     className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
@@ -417,17 +468,20 @@ const ViewRFQ = () => {
                   </button>
                   <button
                     onClick={() => handleConvertToQuotation(rfq)}
-                    className={`px-3 py-2 text-sm rounded transition-colors duration-200 ${
-                      rfq.current_status === "Completed"
-                        ? "bg-green-500 text-white hover:bg-green-600"
-                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    }`}
+                    className={`px-3 py-2 text-sm rounded transition-colors duration-200 ${rfq.current_status === "Completed"
+                      ? "bg-green-500 text-white hover:bg-green-600"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      }`}
                     disabled={rfq.current_status !== "Completed"}
                   >
                     Convert to Quotation
                   </button>
                   <button
-                    onClick={() => navigate(`/pre-job/edit-rfq`, { state: { rfqData: rfq, isEditing: true } })}
+                    onClick={() =>
+                      navigate(`/pre-job/edit-rfq`, {
+                        state: { rfqData: rfq, isEditing: true },
+                      })
+                    }
                     className="bg-blue-500 text-white px-3 py-2 text-sm rounded hover:bg-blue-600 transition-colors duration-200 flex items-center"
                   >
                     <Edit size={16} className="mr-1" /> Edit
@@ -463,9 +517,10 @@ const ViewRFQ = () => {
           <button
             key={page}
             onClick={() => paginate(page)}
-            className={`px-3 py-1 rounded ${
-              currentPage === page ? "bg-indigo-500 text-white" : "bg-gray-200 text-black hover:bg-gray-300"
-            }`}
+            className={`px-3 py-1 rounded ${currentPage === page
+              ? "bg-indigo-500 text-white"
+              : "bg-gray-200 text-black hover:bg-gray-300"
+              }`}
           >
             {page}
           </button>
@@ -494,33 +549,42 @@ const ViewRFQ = () => {
             <ViewCard
               singleFields={allSingleFields}
               repeatableFields={
-                selectedRfq.items && selectedRfq.items.length > 0 ? repeatableFields : []
+                selectedRfq.items && selectedRfq.items.length > 0
+                  ? repeatableFields(selectedRfq.items)
+                  : []
               }
               title={
                 selectedRfq.items && selectedRfq.items.length > 0
                   ? (() => {
-                      const hasItems = selectedRfq.items.some(
-                        (item) => item.item_name && item.item_name.trim() !== ""
-                      );
-                      const hasProducts = selectedRfq.items.some(
-                        (item) => item.product_name && item.product_name.trim() !== ""
-                      );
-                      return hasItems && hasProducts
-                        ? "Items & Products"
-                        : hasItems
+                    const hasItems = selectedRfq.items.some(
+                      (item) => item.item_name && item.item_name.trim() !== ""
+                    );
+                    const hasProducts = selectedRfq.items.some(
+                      (item) =>
+                        item.product_name && item.product_name.trim() !== ""
+                    );
+                    return hasItems && hasProducts
+                      ? "Items & Products"
+                      : hasItems
                         ? "Items"
                         : hasProducts
-                        ? "Products"
-                        : "";
-                    })()
+                          ? "Products"
+                          : "";
+                  })()
                   : ""
               }
-              showRepeatableFields={selectedRfq.items && selectedRfq.items.length > 0}
+              showRepeatableFields={
+                selectedRfq.items && selectedRfq.items.length > 0
+              }
               initialData={selectedRfq}
             />
             <div className="mt-4 flex justify-end space-x-2">
               <button
-                onClick={() => navigate(`/pre-job/edit-rfq`, { state: { rfqData: selectedRfq, isEditing: true } })}
+                onClick={() =>
+                  navigate(`/pre-job/edit-rfq`, {
+                    state: { rfqData: selectedRfq, isEditing: true },
+                  })
+                }
                 className="bg-indigo-500 text-white px-3 py-2 rounded hover:bg-indigo-600 transition-colors duration-200"
               >
                 Edit
@@ -580,10 +644,12 @@ const ViewRFQ = () => {
               quotationItems.map((item) => (
                 <div key={item.id} className="mb-3 p-3 border rounded">
                   <p className="text-sm text-black">
-                    <strong>Item/Product:</strong> {item.item_name || item.product_name || "N/A"}
+                    <strong>{item.item_name ? "Item" : "Product"}:</strong>{" "}
+                    {item.item_name || item.product_name || "N/A"}
                   </p>
                   <p className="text-sm text-black">
-                    <strong>Quantity:</strong> {item.quantity || "N/A"} {item.unit || ""}
+                    <strong>Quantity:</strong> {item.quantity || "N/A"}{" "}
+                    {item.unit || ""}
                   </p>
                   <div className="mt-2">
                     <label className="block text-sm font-medium text-gray-700">
@@ -594,17 +660,24 @@ const ViewRFQ = () => {
                       min="0"
                       step="0.01"
                       value={item.unit_price}
-                      onChange={(e) => handleUnitPriceChange(item.id, e.target.value)}
-                      className={`w-full p-2 border rounded focus:outline-none focus:ring-1 ${
-                        item.error ? "border-red-500 focus:ring-red-500" : "focus:ring-indigo-500"
-                      }`}
+                      onChange={(e) =>
+                        handleUnitPriceChange(item.id, e.target.value)
+                      }
+                      className={`w-full p-2 border rounded focus:outline-none focus:ring-1 ${item.error
+                        ? "border-red-500 focus:ring-red-500"
+                        : "focus:ring-indigo-500"
+                        }`}
                     />
-                    {item.error && <p className="text-red-500 text-xs mt-1">{item.error}</p>}
+                    {item.error && (
+                      <p className="text-red-500 text-xs mt-1">{item.error}</p>
+                    )}
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-gray-500">No items available for this RFQ.</p>
+              <p className="text-sm text-gray-500">
+                No items available for this RFQ.
+              </p>
             )}
             <div className="mt-4 flex justify-end space-x-2">
               <button

@@ -29,7 +29,15 @@ const EditRFQ = () => {
 
       try {
         setLoading(true);
-        const [rfqResponse, rfqChannelsResponse, itemsResponse, productsResponse, unitsResponse, teamResponse, seriesResponse] = await Promise.all([
+        const [
+          rfqResponse,
+          rfqChannelsResponse,
+          itemsResponse,
+          productsResponse,
+          unitsResponse,
+          teamResponse,
+          seriesResponse,
+        ] = await Promise.all([
           apiClient.get(`/add-rfqs/${rfqData.id}/`),
           apiClient.get("/rfq-channels/"),
           apiClient.get("/items/").catch(() => ({ data: [] })),
@@ -46,7 +54,16 @@ const EditRFQ = () => {
           quantity: String(item.quantity) || "",
           unit: item.unit || "",
           unit_price: String(item.unit_price) || "",
-        })) || [{ id: Date.now(), item_name: "", product_name: "", quantity: "", unit: "", unit_price: "" }];
+        })) || [
+          {
+            id: Date.now(),
+            item_name: "",
+            product_name: "",
+            quantity: "",
+            unit: "",
+            unit_price: "",
+          },
+        ];
 
         setFormData({
           company_name: rfqResponse.data.company_name || "",
@@ -59,17 +76,33 @@ const EditRFQ = () => {
           attention_phone: rfqResponse.data.attention_phone || "",
           attention_email: rfqResponse.data.attention_email || "",
           due_date: rfqResponse.data.due_date || "",
-          assign_to: rfqResponse.data.assign_to ? String(rfqResponse.data.assign_to) : "",
+          assign_to: rfqResponse.data.assign_to
+            ? String(rfqResponse.data.assign_to)
+            : "",
           rfq_no: rfqResponse.data.rfq_no || "",
           series: rfqResponse.data.series || "",
           current_status: rfqResponse.data.current_status || "Processing",
           items: fetchedItems,
         });
 
-        setRfqChannels(rfqChannelsResponse.data.map((channel) => channel.channel_name));
-        setItems(itemsResponse.data.length ? itemsResponse.data.map((item) => item.name) : ["Default Item"]);
-        setProducts(productsResponse.data.length ? productsResponse.data.map((product) => product.name) : ["Default Product"]);
-        setUnits(unitsResponse.data.length ? unitsResponse.data.map((unit) => unit.name) : ["Unit", "Piece", "Box"]);
+        setRfqChannels(
+          rfqChannelsResponse.data.map((channel) => channel.channel_name)
+        );
+        setItems(
+          itemsResponse.data.length
+            ? itemsResponse.data.map((item) => item.name)
+            : ["Default Item"]
+        );
+        setProducts(
+          productsResponse.data.length
+            ? productsResponse.data.map((product) => product.name)
+            : ["Default Product"]
+        );
+        setUnits(
+          unitsResponse.data.length
+            ? unitsResponse.data.map((unit) => unit.name)
+            : ["Unit", "Piece", "Box"]
+        );
         setTeamMembers(
           teamResponse.data.map((member) => ({
             value: member.id,
@@ -81,7 +114,10 @@ const EditRFQ = () => {
         const dueDate = new Date(rfqResponse.data.due_date);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        if (dueDate < today && rfqResponse.data.current_status !== "Completed") {
+        if (
+          dueDate < today &&
+          rfqResponse.data.current_status !== "Completed"
+        ) {
           setIsPastDue(true);
         }
       } catch (err) {
@@ -108,7 +144,17 @@ const EditRFQ = () => {
     setFormData((prev) => ({
       ...prev,
       items: prev.items.map((item) =>
-        item.id === entryId ? { ...item, [name]: value } : item
+        item.id === entryId
+          ? {
+              ...item,
+              [name]: value,
+              ...(name === "item_name" && value
+                ? { product_name: "" }
+                : name === "product_name" && value
+                ? { item_name: "" }
+                : {}),
+            }
+          : item
       ),
     }));
   };
@@ -117,7 +163,17 @@ const EditRFQ = () => {
     const newId = Date.now();
     setFormData((prev) => ({
       ...prev,
-      items: [...prev.items, { id: newId, item_name: "", product_name: "", quantity: "", unit: "", unit_price: "" }],
+      items: [
+        ...prev.items,
+        {
+          id: newId,
+          item_name: "",
+          product_name: "",
+          quantity: "",
+          unit: "",
+          unit_price: "",
+        },
+      ],
     }));
   };
 
@@ -133,7 +189,16 @@ const EditRFQ = () => {
   };
 
   const validateSingleFields = () => {
-    const requiredFields = ["company_name", "address", "phone", "email", "due_date", "assign_to", "current_status", "series"];
+    const requiredFields = [
+      "company_name",
+      "address",
+      "phone",
+      "email",
+      "due_date",
+      "assign_to",
+      "current_status",
+      "series",
+    ];
     for (const field of requiredFields) {
       if (!formData[field]) return `${field.replace("_", " ")} is required`;
     }
@@ -141,8 +206,10 @@ const EditRFQ = () => {
   };
 
   const validateEntry = (entry) => {
-    if (!entry.item_name && !entry.product_name) return "Either Item or Product is required";
-    if (entry.item_name && entry.product_name) return "Only one of Item or Product can be provided";
+    if (!entry.item_name && !entry.product_name)
+      return "Either Item or Product is required";
+    if (entry.item_name && entry.product_name)
+      return "Only one of Item or Product can be provided";
     if (!entry.quantity) return "Quantity is required";
     if (parseFloat(entry.quantity) < 1) return "Quantity must be at least 1";
     if (!entry.unit) return "Unit is required";
@@ -195,11 +262,41 @@ const EditRFQ = () => {
   };
 
   const fields = [
-    { name: "company_name", label: "Company Name", type: "text", required: true, placeholder: "Enter Company Name" },
-    { name: "reference", label: "Reference", type: "text", required: false, placeholder: "Enter Reference" },
-    { name: "address", label: "Address", type: "text", required: true, placeholder: "Enter Address" },
-    { name: "phone", label: "Phone", type: "text", required: true, placeholder: "Enter Phone Number" },
-    { name: "email", label: "Email", type: "email", required: true, placeholder: "Enter Email" },
+    {
+      name: "company_name",
+      label: "Company Name",
+      type: "text",
+      required: true,
+      placeholder: "Enter Company Name",
+    },
+    {
+      name: "reference",
+      label: "Reference",
+      type: "text",
+      required: false,
+      placeholder: "Enter Reference",
+    },
+    {
+      name: "address",
+      label: "Address",
+      type: "text",
+      required: true,
+      placeholder: "Enter Address",
+    },
+    {
+      name: "phone",
+      label: "Phone",
+      type: "text",
+      required: true,
+      placeholder: "Enter Phone Number",
+    },
+    {
+      name: "email",
+      label: "Email",
+      type: "email",
+      required: true,
+      placeholder: "Enter Email",
+    },
     {
       name: "rfq_channel",
       label: "RFQ Channel",
@@ -208,10 +305,34 @@ const EditRFQ = () => {
       placeholder: "Select or Enter RFQ Channel",
       options: rfqChannels,
     },
-    { name: "attention_name", label: "Attention Name", type: "text", required: false, placeholder: "Enter Attention Name" },
-    { name: "attention_phone", label: "Attention Phone", type: "text", required: false, placeholder: "Enter Attention Phone" },
-    { name: "attention_email", label: "Attention Email", type: "email", required: false, placeholder: "Enter Attention Email" },
-    { name: "due_date", label: "Due Date", type: "date", required: true, placeholder: "Select Due Date" },
+    {
+      name: "attention_name",
+      label: "Attention Name",
+      type: "text",
+      required: false,
+      placeholder: "Enter Attention Name",
+    },
+    {
+      name: "attention_phone",
+      label: "Attention Phone",
+      type: "text",
+      required: false,
+      placeholder: "Enter Attention Phone",
+    },
+    {
+      name: "attention_email",
+      label: "Attention Email",
+      type: "email",
+      required: false,
+      placeholder: "Enter Attention Email",
+    },
+    {
+      name: "due_date",
+      label: "Due Date",
+      type: "date",
+      required: true,
+      placeholder: "Select Due Date",
+    },
     {
       name: "assign_to",
       label: "Assigned To",
@@ -240,72 +361,118 @@ const EditRFQ = () => {
     },
   ];
 
-  const repeatableFields = [
-    {
-      name: "item_name",
-      label: "Item",
-      type: "select",
-      required: true,
-      placeholder: "Select or Enter Item",
-      options: items,
-    },
-    {
-      name: "product_name",
-      label: "Product",
-      type: "select",
-      required: true,
-      placeholder: "Select or Enter Product",
-      options: products,
-    },
-    {
-      name: "quantity",
-      label: "Quantity",
-      type: "number",
-      required: true,
-      min: 1,
-      placeholder: "Enter Quantity",
-    },
-    {
-      name: "unit",
-      label: "Unit",
-      type: "select",
-      required: true,
-      placeholder: "Select or Enter Unit",
-      options: units,
-    },
-    {
-      name: "unit_price",
-      label: "Unit Price",
-      type: "number",
-      required: false,
-      min: 0,
-      step: "0.01",
-      placeholder: "Enter Unit Price",
-    },
-  ];
+  const repeatableFields = (entryId) => {
+    const item = formData.items.find((e) => e.id === entryId);
+    const isItemSelected = item?.item_name && !item?.product_name;
+    const isProductSelected = item?.product_name && !item?.item_name;
+
+    return [
+      ...(isItemSelected || (!isItemSelected && !isProductSelected)
+        ? [
+            {
+              name: "item_name",
+              label: "Item",
+              type: "select",
+              required: true,
+              placeholder: "Select or Enter Item",
+              options: items,
+            },
+          ]
+        : []),
+      ...(isProductSelected || (!isItemSelected && !isProductSelected)
+        ? [
+            {
+              name: "product_name",
+              label: "Product",
+              type: "select",
+              required: true,
+              placeholder: "Select or Enter Product",
+              options: products,
+            },
+          ]
+        : []),
+      {
+        name: "quantity",
+        label: "Quantity",
+        type: "number",
+        required: true,
+        min: 1,
+        placeholder: "Enter Quantity",
+      },
+      {
+        name: "unit",
+        label: "Unit",
+        type: "select",
+        required: true,
+        placeholder: "Select or Enter Unit",
+        options: units,
+      },
+      {
+        name: "unit_price",
+        label: "Unit Price",
+        type: "number",
+        required: false,
+        min: 0,
+        step: "0.01",
+        placeholder: "Enter Unit Price",
+      },
+    ];
+  };
 
   const renderField = (field, entryId = null) => {
-    const value = entryId ? formData.items.find((e) => e.id === entryId)?.[field.name] || "" : formData[field.name] || "";
-    const options = field.name === "item_name" ? items : field.name === "product_name" ? products : field.name === "unit" ? units : field.name === "rfq_channel" ? rfqChannels : field.name === "assign_to" ? teamMembers.map((m) => m.label) : field.name === "series" ? seriesList.map((s) => s.series_name) : field.options || [];
-    const optionValues = field.name === "series" ? seriesList.map((s) => s.id) : field.name === "assign_to" ? teamMembers.map((m) => m.value) : field.options || [];
+    const value = entryId
+      ? formData.items.find((e) => e.id === entryId)?.[field.name] || ""
+      : formData[field.name] || "";
+    const options =
+      field.name === "item_name"
+        ? items
+        : field.name === "product_name"
+        ? products
+        : field.name === "unit"
+        ? units
+        : field.name === "rfq_channel"
+        ? rfqChannels
+        : field.name === "assign_to"
+        ? teamMembers.map((m) => m.label)
+        : field.name === "series"
+        ? seriesList.map((s) => s.series_name)
+        : field.options || [];
+    const optionValues =
+      field.name === "series"
+        ? seriesList.map((s) => s.id)
+        : field.name === "assign_to"
+        ? teamMembers.map((m) => m.value)
+        : field.options || [];
 
     if (field.type === "select") {
       return (
-        <div key={`${field.name}-${entryId || field.name}`} className="mb-4 relative">
-          <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
+        <div
+          key={`${field.name}-${entryId || field.name}`}
+          className="mb-4 relative"
+        >
+          <label
+            htmlFor={`${field.name}-${entryId || field.name}`}
+            className="block text-xs font-medium text-black mb-1"
+          >
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
           <select
             id={`${field.name}-${entryId || field.name}`}
             name={field.name}
             value={value}
-            onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
+            onChange={(e) =>
+              entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e)
+            }
             className="w-full text-sm p-2 border border-gray-300 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
             aria-required={field.required}
           >
-            <option value="" disabled>{field.placeholder}</option>
+            <option value="" disabled>
+              {field.placeholder}
+            </option>
             {options.map((option, index) => (
-              <option key={index} value={optionValues[index] || option}>{option}</option>
+              <option key={index} value={optionValues[index] || option}>
+                {option}
+              </option>
             ))}
           </select>
         </div>
@@ -313,7 +480,10 @@ const EditRFQ = () => {
     }
     return (
       <div key={`${field.name}-${entryId || field.name}`} className="mb-4">
-        <label htmlFor={`${field.name}-${entryId || field.name}`} className="block text-xs font-medium text-black mb-1">
+        <label
+          htmlFor={`${field.name}-${entryId || field.name}`}
+          className="block text-xs font-medium text-black mb-1"
+        >
           {field.label} {field.required && <span className="text-red-500">*</span>}
         </label>
         <input
@@ -321,7 +491,9 @@ const EditRFQ = () => {
           type={field.type}
           name={field.name}
           value={value}
-          onChange={(e) => (entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e))}
+          onChange={(e) =>
+            entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e)
+          }
           placeholder={field.placeholder}
           min={field.min}
           step={field.step}
@@ -340,16 +512,32 @@ const EditRFQ = () => {
     <div className="container mx-auto p-4 bg-transparent min-h-screen">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center">
-          <button onClick={() => navigate("/pre-job/view-rfq")} className="text-black hover:text-indigo-500 mr-3">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          <button
+            onClick={() => navigate("/pre-job/view-rfq")}
+            className="text-black hover:text-indigo-500 mr-3"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
-          <h1 className="text-xl font-semibold text-black">Edit RFQ #{formData.rfq_no}</h1>
+          <h1 className="text-xl font-semibold text-black">
+            Edit RFQ #{formData.rfq_no}
+          </h1>
         </div>
         {isPastDue && (
           <div className="text-red-600 font-medium text-sm">
-            Alert: This RFQ is past due. Please update the status to Completed or take action.
+            Alert: This RFQ is past due. Please update the status to Completed or
+            take action.
           </div>
         )}
       </div>
@@ -361,13 +549,14 @@ const EditRFQ = () => {
           <div className="mt-4">
             <h2 className="text-lg font-semibold text-black mb-3">Items</h2>
             {formData.items.map((entry) => (
-              <div key={entry.id} className="mb-3 p-3 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-4 gap-3 items-start">
-                {renderField(repeatableFields.find((f) => f.name === "item_name"), entry.id)}
-                {renderField(repeatableFields.find((f) => f.name === "product_name"), entry.id)}
-                {renderField(repeatableFields.find((f) => f.name === "quantity"), entry.id)}
-                {renderField(repeatableFields.find((f) => f.name === "unit"), entry.id)}
-                {renderField(repeatableFields.find((f) => f.name === "unit_price"), entry.id)}
-                <div className="flex items-center justify-end">
+              <div
+                key={entry.id}
+                className="mb-3 p-3 bg-gray-100 rounded-lg grid grid-cols-1 md:grid-cols-4 gap-3 items-start"
+              >
+                {repeatableFields(entry.id).map((field) =>
+                  renderField(field, entry.id)
+                )}
+                <div className="-mt-4">
                   <button
                     type="button"
                     onClick={() => removeFormBlock(entry.id)}

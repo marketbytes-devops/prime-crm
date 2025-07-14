@@ -59,9 +59,13 @@ const ViewQuotation = () => {
           };
         })
       );
-      setQuotations(updatedQuotations);
+      // Sort quotations by created_at in descending order (newest first)
+      const sortedQuotations = updatedQuotations.sort((a, b) =>
+        new Date(b.created_at) - new Date(a.created_at)
+      );
+      setQuotations(sortedQuotations);
       if (location.state?.quotationId) {
-        const newQuotation = updatedQuotations.find((q) => q.id === location.state.quotationId);
+        const newQuotation = sortedQuotations.find((q) => q.id === location.state.quotationId);
         if (newQuotation) {
           setSelectedQuotation(newQuotation);
         } else {
@@ -116,14 +120,14 @@ const ViewQuotation = () => {
         rfq: quotationToUpdate.rfq || null,
         items: quotationToUpdate.items
           ? quotationToUpdate.items.map((item) => ({
-              id: item.id || null,
-              item_name: item.item_name || null,
-              product_name: item.product_name || null,
-              quantity: item.quantity || 1,
-              unit: item.unit || null,
-              unit_price: item.unit_price || 0.00,
-              total_price: item.total_price || (item.quantity || 1) * (item.unit_price || 0.00),
-            }))
+            id: item.id || null,
+            item_name: item.item_name || null,
+            product_name: item.product_name || null,
+            quantity: item.quantity || 1,
+            unit: item.unit || null,
+            unit_price: item.unit_price || 0.00,
+            total_price: item.total_price || (item.quantity || 1) * (item.unit_price || 0.00),
+          }))
           : [],
       };
       console.log("Updating quotation status with payload:", payload);
@@ -136,13 +140,13 @@ const ViewQuotation = () => {
         prev.map((q) =>
           q.id === quotationId
             ? {
-                ...q,
-                current_status: updatedQuotation.current_status,
-                is_due_reminder:
-                  updatedQuotation.current_status === "Approved" &&
-                  (!updatedQuotation.purchase_order || updatedQuotation.purchase_order.length === 0) &&
-                  new Date(updatedQuotation.due_date) < new Date().setHours(0, 0, 0, 0),
-              }
+              ...q,
+              current_status: updatedQuotation.current_status,
+              is_due_reminder:
+                updatedQuotation.current_status === "Approved" &&
+                (!updatedQuotation.purchase_order || updatedQuotation.purchase_order.length === 0) &&
+                new Date(updatedQuotation.due_date) < new Date().setHours(0, 0, 0, 0),
+            }
             : q
         )
       );
@@ -192,13 +196,13 @@ const ViewQuotation = () => {
             prev.map((q) =>
               q.id === quotationId
                 ? {
-                    ...q,
-                    current_status: patchedQuotation.current_status,
-                    is_due_reminder:
-                      patchedQuotation.current_status === "Approved" &&
-                      (!patchedQuotation.purchase_order || patchedQuotation.purchase_order.length === 0) &&
-                      new Date(patchedQuotation.due_date) < new Date().setHours(0, 0, 0, 0),
-                  }
+                  ...q,
+                  current_status: patchedQuotation.current_status,
+                  is_due_reminder:
+                    patchedQuotation.current_status === "Approved" &&
+                    (!patchedQuotation.purchase_order || patchedQuotation.purchase_order.length === 0) &&
+                    new Date(patchedQuotation.due_date) < new Date().setHours(0, 0, 0, 0),
+                }
                 : q
             )
           );
@@ -240,12 +244,11 @@ const ViewQuotation = () => {
         }
       }
       toast.error(
-        `Failed to update status: ${
-          err.response?.data?.detail ||
-          err.response?.data?.current_status?.[0] ||
-          err.response?.data?.rfq?.[0] ||
-          err.response?.data?.items?.[0] ||
-          err.message
+        `Failed to update status: ${err.response?.data?.detail ||
+        err.response?.data?.current_status?.[0] ||
+        err.response?.data?.rfq?.[0] ||
+        err.response?.data?.items?.[0] ||
+        err.message
         }`
       );
     } finally {
@@ -285,10 +288,10 @@ const ViewQuotation = () => {
       items: prev.items.map((item) =>
         item.id === itemId
           ? {
-              ...item,
-              quantity: Math.min(quantity, item.quantity),
-              total_price: (item.unit_price || 0) * Math.min(quantity, item.quantity),
-            }
+            ...item,
+            quantity: Math.min(quantity, item.quantity),
+            total_price: (item.unit_price || 0) * Math.min(quantity, item.quantity),
+          }
           : item
       ),
     }));
@@ -386,9 +389,8 @@ const ViewQuotation = () => {
           <p><strong>Assigned To:</strong> ${quotation.rfq_details?.assign_to_name || "N/A"}</p>
           <p><strong>Designation:</strong> ${quotation.rfq_details?.assign_to_designation || "N/A"}</p>
         </div>
-        ${
-          quotation.items && quotation.items.length > 0
-            ? `
+        ${quotation.items && quotation.items.length > 0
+        ? `
           <h3>Items & Products</h3>
           <table>
             <thead>
@@ -402,8 +404,8 @@ const ViewQuotation = () => {
             </thead>
             <tbody>
               ${quotation.items
-                .map(
-                  (item) => `
+          .map(
+            (item) => `
                 <tr>
                   <td>${item.item_name || item.product_name || "N/A"}</td>
                   <td>${item.quantity || "N/A"}</td>
@@ -412,31 +414,29 @@ const ViewQuotation = () => {
                   <td>$${item.total_price != null ? Number(item.total_price).toFixed(2) : "0.00"}</td>
                 </tr>
               `
-                )
-                .join("")}
+          )
+          .join("")}
             </tbody>
           </table>
           <div class="total">
             Total Amount: $${quotation.items
-              .reduce((sum, item) => sum + (item.quantity || 0) * (item.unit_price || 0), 0)
-              .toFixed(2)}
+          .reduce((sum, item) => sum + (item.quantity || 0) * (item.unit_price || 0), 0)
+          .toFixed(2)}
           </div>
         `
-            : ""
-        }
-        ${
-          quotation.purchase_order && quotation.purchase_order.length > 0
-            ? `
+        : ""
+      }
+        ${quotation.purchase_order && quotation.purchase_order.length > 0
+        ? `
           <h3>Purchase Orders</h3>
           ${quotation.purchase_order
-            .map(
-              (po, index) => `
+          .map(
+            (po, index) => `
             <div style="margin-top: 20px;">
               <h4>Purchase Order #${index + 1}</h4>
               <p><strong>Client PO Number:</strong> ${po.client_po_number || "N/A"}</p>
               <p><strong>Order Type:</strong> ${po.order_type || "N/A"}</p>
-              <p><strong>Created At:</strong> ${
-                po.created_at ? new Date(po.created_at).toLocaleDateString() : "N/A"
+              <p><strong>Created At:</strong> ${po.created_at ? new Date(po.created_at).toLocaleDateString() : "N/A"
               }</p>
               <table>
                 <thead>
@@ -449,8 +449,8 @@ const ViewQuotation = () => {
                 </thead>
                 <tbody>
                   ${po.items
-                    .map(
-                      (item) => `
+                .map(
+                  (item) => `
                     <tr>
                       <td>${item.item_name || item.product_name || "N/A"}</td>
                       <td>${item.quantity || "N/A"}</td>
@@ -458,17 +458,17 @@ const ViewQuotation = () => {
                       <td>$${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}</td>
                     </tr>
                   `
-                    )
-                    .join("")}
+                )
+                .join("")}
                 </tbody>
               </table>
             </div>
           `
-            )
-            .join("")}
+          )
+          .join("")}
         `
-            : ""
-        }
+        : ""
+      }
         <button class="no-print" onclick="window.print()">Print</button>
       </body>
       </html>
@@ -542,7 +542,6 @@ const ViewQuotation = () => {
     { name: "rfq_details.rfq_no", label: "RFQ No" },
     { name: "rfq_details.assign_to_name", label: "Assigned To" },
     { name: "current_status", label: "Status" },
-    { name: "when_approved", label: "When Approved", type: "date" },
     { name: "next_followup_date", label: "Next Followup Date", type: "date" },
     { name: "latest_remarks", label: "Latest Remarks" },
   ];
@@ -614,7 +613,7 @@ const ViewQuotation = () => {
               {tableFields.map((field) => (
                 <th
                   key={field.name}
-                  className="px-4 py-2 text-sm font-medium text-black text-left"
+                  className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap"
                 >
                   {field.name === "current_status" ? (
                     <div className="flex items-center">
@@ -626,7 +625,7 @@ const ViewQuotation = () => {
                   )}
                 </th>
               ))}
-              <th className="px-4 py-2 text-sm font-medium text-black text-left">
+              <th className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap">
                 Actions
               </th>
             </tr>
@@ -638,7 +637,10 @@ const ViewQuotation = () => {
                 className={`border-t hover:bg-gray-50 ${quotation.is_due_reminder ? "bg-red-50" : ""}`}
               >
                 {tableFields.map((field) => (
-                  <td key={field.name} className="px-4 py-3 text-sm text-black">
+                  <td
+                    key={field.name}
+                    className="px-4 py-3 text-sm text-black whitespace-nowrap"
+                  >
                     {field.name === "current_status" ? (
                       <select
                         value={quotation.current_status || "Pending"}
@@ -672,7 +674,7 @@ const ViewQuotation = () => {
                     )}
                   </td>
                 ))}
-                <td className="px-4 py-3 text-sm text-black flex space-x-2">
+                <td className="px-4 py-3 text-sm text-black flex space-x-2 whitespace-nowrap">
                   <button
                     onClick={() => setSelectedQuotation(quotation)}
                     className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
@@ -682,7 +684,11 @@ const ViewQuotation = () => {
                   {(!quotation.purchase_order || quotation.purchase_order.length === 0) && (
                     <button
                       onClick={() => handleConvertToPurchaseOrder(quotation)}
-                      className="bg-green-500 text-white px-3 py-2 text-sm rounded hover:bg-green-600 transition-colors duration-200"
+                      className={`px-3 py-2 text-sm rounded transition-colors duration-200 ${quotation.current_status === "Approved"
+                          ? "bg-green-500 text-white hover:bg-green-600"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        }`}
+                      disabled={quotation.current_status !== "Approved"}
                     >
                       Convert to PO
                     </button>
@@ -712,9 +718,8 @@ const ViewQuotation = () => {
           <button
             key={page}
             onClick={() => paginate(page)}
-            className={`px-3 py-1 rounded ${
-              currentPage === page ? "bg-indigo-500 text-white" : "bg-gray-200 text-black hover:bg-gray-300"
-            }`}
+            className={`px-3 py-1 rounded ${currentPage === page ? "bg-indigo-500 text-white" : "bg-gray-200 text-black hover:bg-gray-300"
+              }`}
           >
             {page}
           </button>
@@ -750,20 +755,20 @@ const ViewQuotation = () => {
               title={
                 selectedQuotation.items && selectedQuotation.items.length > 0
                   ? (() => {
-                      const hasItems = selectedQuotation.items.some(
-                        (item) => item.item_name && item.item_name.trim() !== ""
-                      );
-                      const hasProducts = selectedQuotation.items.some(
-                        (item) => item.product_name && item.product_name.trim() !== ""
-                      );
-                      return hasItems && hasProducts
-                        ? "Items & Products"
-                        : hasItems
+                    const hasItems = selectedQuotation.items.some(
+                      (item) => item.item_name && item.item_name.trim() !== ""
+                    );
+                    const hasProducts = selectedQuotation.items.some(
+                      (item) => item.product_name && item.product_name.trim() !== ""
+                    );
+                    return hasItems && hasProducts
+                      ? "Items & Products"
+                      : hasItems
                         ? "Items"
                         : hasProducts
-                        ? "Products"
-                        : "";
-                    })()
+                          ? "Products"
+                          : "";
+                  })()
                   : ""
               }
               showRepeatableFields={selectedQuotation.items && selectedQuotation.items.length > 0}
