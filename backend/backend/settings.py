@@ -71,13 +71,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'backend.wsgi.application'
 
 # Database
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
@@ -144,9 +137,11 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = os.getenv('EMAIL_PORT', 587)
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'your-email@gmail.com')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'your-email-password')
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'marketbytesdevops@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('ysydcazqvfxcewow', 'ysydcazqvfxcewow')
+ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'marketbytesdevops@gmail.com')
 
-ADMIN_EMAIL= os.getenv('ADMIN_EMAIL', 'your-email@gmail.com')
+# Debug statement to verify ADMIN_EMAIL value
+print(f"ADMIN_EMAIL set to: {os.getenv('ADMIN_EMAIL')}")
 
 AUTH_USER_MODEL = 'authapp.CustomUser'
