@@ -22,6 +22,8 @@ import EditRFQ from "./pages/Execution/RFQ/EditRFQ";
 import NumberSeries from "./components/NumberSeries";
 import ViewQuotation from "./pages/Execution/Quotation/ViewQuotation";
 import EditQuotation from "./pages/Execution/Quotation/EditQuotation";
+import InitiateWorkOrder from "./pages/JobExecution/InitiateWorkOrder";
+import ProcessingWorkOrder from "./pages/JobExecution/ProcessingWorkOrder";
 
 const ProtectedRoute = ({ children, isAuthenticated }) => {
   console.log("ProtectedRoute - isAuthenticated:", isAuthenticated);
@@ -60,10 +62,7 @@ function App() {
           index: true,
           element: <Dashboard />,
         },
-        {
-          path: "/profile",
-          element: <Profile />,
-        },
+
         {
           path: "/pre-job/add-rfq",
           element: <AddRFQ />,
@@ -85,6 +84,18 @@ function App() {
           element: <EditQuotation />,
         },
         {
+          path: "/pre-job/existing-client",
+          element: <ExistingClient />,
+        },
+        {
+          path: "/job-execution/initiate-work-order",
+          element: <InitiateWorkOrder />,
+        },
+        {
+          path: "/job-execution/processing-work-orders",
+          element: <ProcessingWorkOrder />,
+        },
+        {
           path: "/settings/rfq-channel",
           element: <RFQChannels />,
         },
@@ -97,10 +108,6 @@ function App() {
           element: <Team />,
         },
         {
-          path: "/pre-job/existing-client",
-          element: <ExistingClient />,
-        },
-        {
           path: "/settings/item",
           element: <Item />,
         },
@@ -111,6 +118,10 @@ function App() {
         {
           path: "/settings/series",
           element: <NumberSeries />,
+        },
+        {
+          path: "/profile",
+          element: <Profile />,
         },
       ],
     },

@@ -68,11 +68,11 @@ const Sidebar = ({ toggleSidebar }) => {
         { to: "/job-execution/processing-work-orders", label: "Processing Work Orders", icon: <Wrench className="w-5 h-5 mr-3" /> },
       ],
     },
-    {
-      to: "/post-job/completed-wo",
-      label: "Completed WO",
-      icon: <CheckCircle className="w-5 h-5 mr-3" />,
-    },
+    // {
+    //   to: "/post-job/completed-wo",
+    //   label: "Completed WO",
+    //   icon: <CheckCircle className="w-5 h-5 mr-3" />,
+    // },
     { to: "/profile", label: "Profile", icon: <User className="w-5 h-5 mr-3" /> },
     {
       label: "Settings",
