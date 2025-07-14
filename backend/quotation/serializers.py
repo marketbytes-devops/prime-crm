@@ -1,3 +1,6 @@
+# quotation/serializers.py
+from django.db import transaction
+from django.db.models import Max
 from rest_framework import serializers
 from .models import Quotation, QuotationItem, PurchaseOrder, PurchaseOrderItem
 from rfq.models import RFQ
@@ -10,7 +13,7 @@ class QuotationItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'item_name', 'product_name', 'quantity', 'unit', 'unit_price', 'total_price']
 
     def get_total_price(self, obj):
-        if obj.quantity and obj.unit_price:
+        if obj.quantity and obj.unit_price is not None:
             return obj.quantity * obj.unit_price
         return 0
 
@@ -56,21 +59,52 @@ class QuotationSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         items = data.get('items', [])
+        rfq = data.get('rfq')
+        # Validate RFQ status
+        if self.instance is None and rfq and rfq.current_status != "Completed":
+            raise serializers.ValidationError("Cannot create quotation: RFQ must be in 'Completed' status.")
+        # Prevent duplicate quotations for the same RFQ (optional)
+        if self.instance is None and rfq and Quotation.objects.filter(rfq=rfq).exists():
+            raise serializers.ValidationError("A quotation already exists for this RFQ.")
         for item in items:
-            if not item.get('unit_price') or item.get('unit_price') < 0:
-                raise serializers.ValidationError("Unit price is required and must be non-negative.")
+            if item.get('unit_price') is None or item.get('unit_price') < 0:
+                raise serializers.ValidationError({
+                    'items': f"Unit price for {item.get('item_name') or item.get('product_name') or 'item'} must be non-negative."
+                })
             if not item.get('quantity') or item.get('quantity') < 1:
-                raise serializers.ValidationError("Quantity is required and must be at least 1.")
+                raise serializers.ValidationError({
+                    'items': f"Quantity for {item.get('item_name') or item.get('product_name') or 'item'} must be at least 1."
+                })
         return data
 
     def create(self, validated_data):
-        items_data = validated_data.pop('items', [])
-        rfq = validated_data.get('rfq')
-        quotation_no = f"QT-{rfq.rfq_no}"
-        quotation = Quotation.objects.create(quotation_no=quotation_no, **validated_data)
-        for item_data in items_data:
-            QuotationItem.objects.create(quotation=quotation, **item_data)
-        return quotation
+        with transaction.atomic():
+            items_data = validated_data.pop('items', [])
+            rfq = validated_data.get('rfq')
+
+            # Generate unique quotation_no
+            prefix = "QT-"
+            latest_quotation = Quotation.objects.select_for_update().aggregate(Max('quotation_no'))['quotation_no__max']
+            if latest_quotation:
+                try:
+                    last_number = int(latest_quotation.split('-')[-1])
+                    new_number = last_number + 1
+                except (ValueError, IndexError):
+                    new_number = 1
+            else:
+                new_number = 1
+
+            quotation_no = f"{prefix}{new_number:07d}"
+            validated_data['quotation_no'] = quotation_no
+
+            # Create the quotation
+            quotation = Quotation.objects.create(**validated_data)
+
+            # Create associated items
+            for item_data in items_data:
+                QuotationItem.objects.create(quotation=quotation, **item_data)
+
+            return quotation
 
     def update(self, instance, validated_data):
         items_data = validated_data.pop('items', [])
@@ -88,6 +122,7 @@ class QuotationSerializer(serializers.ModelSerializer):
         instance.next_followup_date = validated_data.get('next_followup_date', instance.next_followup_date)
         instance.save()
 
+        # Update items
         instance.items.all().delete()
         for item_data in items_data:
             QuotationItem.objects.create(quotation=instance, **item_data)

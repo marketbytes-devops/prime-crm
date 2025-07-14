@@ -63,14 +63,22 @@ class RFQSerializer(serializers.ModelSerializer):
     def send_assignment_email(self, rfq, assign_to):
         email_sent = False
         if assign_to and assign_to.email:
-            subject = f'You have been assigned to RFQ #{rfq.rfq_no}'
+            # Email to assigned person
+            subject = f'You Have Been Assigned to RFQ #{rfq.rfq_no}'
             message = (
-                f'Hello {assign_to.name},\n\n'
-                f'You have been assigned to RFQ #{rfq.rfq_no} for {rfq.company_name}.\n'
-                f'Due Date: {rfq.due_date or "Not specified"}\n'
-                f'Status: {rfq.current_status or "Processing"}\n'
-                f'Please check the PrimeCRM dashboard for details.\n\n'
-                f'Regards,\nPrimeCRM Team'
+                f'Dear {assign_to.name},\n\n'
+                f'You have been assigned to the following Request for Quotation (RFQ):\n'
+                f'------------------------------------------------------------\n'
+                f'🔹 RFQ Number: {rfq.rfq_no}\n'
+                f'🔹 Project: {rfq.company_name or "N/A"}\n'
+                f'🔹 Due Date: {rfq.due_date or "Not specified"}\n'
+                f'🔹 Status: {rfq.current_status or "Processing"}\n'
+                f'------------------------------------------------------------\n'
+                f'Please log in to your PrimeCRM dashboard to view the details and take the necessary actions.\n\n'
+                f'Best regards,\n'
+                f'PrimeCRM Team\n'
+                f'---\n'
+                f'This is an automated message. Please do not reply to this email.'
             )
             try:
                 send_mail(
@@ -85,14 +93,24 @@ class RFQSerializer(serializers.ModelSerializer):
             except Exception as e:
                 print(f"Failed to send email to {assign_to.email} for RFQ #{rfq.rfq_no}: {str(e)}")
 
+            # Email to admin
             admin_email = settings.ADMIN_EMAIL
-            admin_subject = f'RFQ #{rfq.rfq_no} Assignment Notification'
+            admin_subject = f'RFQ Assignment Notification – #{rfq.rfq_no}'
             admin_message = (
-                f'Hello Admin,\n\n'
-                f'{assign_to.name} (email: {assign_to.email}) is assigned to RFQ #{rfq.rfq_no} for {rfq.company_name}.\n'
-                f'Due Date: {rfq.due_date or "Not specified"}\n'
-                f'Status: {rfq.current_status or "Processing"}\n'
-                f'Regards,\nPrimeCRM Team'
+                f'Dear Admin,\n\n'
+                f'We would like to inform you that the following RFQ has been assigned:\n'
+                f'------------------------------------------------------------\n'
+                f'🔹 RFQ Number: {rfq.rfq_no}\n'
+                f'🔹 Assigned To: {assign_to.name} ({assign_to.email})\n'
+                f'🔹 Team: {rfq.company_name or "N/A"}\n'
+                f'🔹 Due Date: {rfq.due_date or "Not specified"}\n'
+                f'🔹 Status: {rfq.current_status or "Processing"}\n'
+                f'------------------------------------------------------------\n'
+                f'Please take any necessary actions or follow up as required.\n\n'
+                f'Best regards,\n'
+                f'**PrimeCRM Team**\n'
+                f'---\n'
+                f'This is an automated message. Please do not reply to this email.'
             )
             try:
                 send_mail(
@@ -112,13 +130,22 @@ class RFQSerializer(serializers.ModelSerializer):
     def send_due_date_reminder(self, rfq, assign_to):
         email_sent = False
         if assign_to and assign_to.email and rfq.due_date == date.today() and rfq.current_status != 'Completed':
+            # Email to assigned person
             subject = f'Reminder: RFQ #{rfq.rfq_no} Due Today'
             message = (
-                f'Hello {assign_to.name},\n\n'
-                f'Your due date for RFQ #{rfq.rfq_no} for {rfq.company_name} is ending today.\n'
-                f'Please ensure all necessary actions are completed promptly.\n'
-                f'Check the PrimeCRM dashboard for details.\n\n'
-                f'Regards,\nPrimeCRM Team'
+                f'Dear {assign_to.name},\n\n'
+                f'Your due date for the following Request for Quotation (RFQ) is ending today:\n'
+                f'------------------------------------------------------------\n'
+                f'🔹 RFQ Number: {rfq.rfq_no}\n'
+                f'🔹 **Project: {rfq.company_name or "N/A"}\n'
+                f'🔹 Due Date: {rfq.due_date}\n'
+                f'🔹 Status: {rfq.current_status or "Processing"}\n'
+                f'------------------------------------------------------------\n'
+                f'Please ensure all necessary actions are completed promptly. Log in to your PrimeCRM dashboard for details.\n\n'
+                f'Best regards,\n'
+                f'PrimeCRM Team\n'
+                f'---\n'
+                f'This is an automated message. Please do not reply to this email.'
             )
             try:
                 send_mail(
@@ -133,13 +160,24 @@ class RFQSerializer(serializers.ModelSerializer):
             except Exception as e:
                 print(f"Failed to send reminder email to {assign_to.email} for RFQ #{rfq.rfq_no}: {str(e)}")
 
+            # Email to admin
             admin_email = settings.ADMIN_EMAIL
             admin_subject = f'RFQ #{rfq.rfq_no} Due Today Notification'
             admin_message = (
-                f'Hello Admin,\n\n'
-                f'{assign_to.name} (email: {assign_to.email}) is assigned to RFQ #{rfq.rfq_no} for {rfq.company_name}.\n'
-                f'The due date for this RFQ is ending today.\n'
-                f'Regards,\nPrimeCRM Team'
+                f'Dear Admin,\n\n'
+                f'We would like to inform you that the following RFQ is due today:\n'
+                f'------------------------------------------------------------\n'
+                f'🔹 RFQ Number: {rfq.rfq_no}\n'
+                f'🔹 Assigned To: {assign_to.name} ({assign_to.email})\n'
+                f'🔹 Team: {rfq.company_name or "N/A"}\n'
+                f'🔹 Due Date: {rfq.due_date}\n'
+                f'🔹 Status: {rfq.current_status or "Processing"}\n'
+                f'------------------------------------------------------------\n'
+                f'Please take any necessary actions or follow up as required.\n\n'
+                f'Best regards,\n'
+                f'PrimeCRM Team\n'
+                f'---\n'
+                f'This is an automated message. Please do not reply to this email.'
             )
             try:
                 send_mail(
@@ -159,13 +197,22 @@ class RFQSerializer(serializers.ModelSerializer):
     def send_past_due_alert(self, rfq, assign_to):
         email_sent = False
         if assign_to and assign_to.email and rfq.due_date < date.today() and rfq.current_status != 'Completed':
+            # Email to assigned person
             subject = f'Alert: RFQ #{rfq.rfq_no} Past Due'
             message = (
-                f'Hello {assign_to.name},\n\n'
-                f'The due date for RFQ #{rfq.rfq_no} for {rfq.company_name} has passed.\n'
-                f'Please take immediate action to address this.\n'
-                f'Check the PrimeCRM dashboard for details.\n\n'
-                f'Regards,\nPrimeCRM Team'
+                f'Dear {assign_to.name},\n\n'
+                f'The due date for the following Request for Quotation (RFQ) has passed:\n'
+                f'------------------------------------------------------------\n'
+                f'🔹 RFQ Number: {rfq.rfq_no}\n'
+                f'🔹 Project: {rfq.company_name or "N/A"}\n'
+                f'🔹 Due Date: {rfq.due_date}\n'
+                f'🔹 Status: {rfq.current_status or "Processing"}\n'
+                f'------------------------------------------------------------\n'
+                f'Please take immediate action to address this. Log in to your PrimeCRM dashboard for details.\n\n'
+                f'Best regards,\n'
+                f'PrimeCRM Team\n'
+                f'---\n'
+                f'This is an automated message. Please do not reply to this email.'
             )
             try:
                 send_mail(
@@ -180,13 +227,24 @@ class RFQSerializer(serializers.ModelSerializer):
             except Exception as e:
                 print(f"Failed to send past due alert email to {assign_to.email} for RFQ #{rfq.rfq_no}: {str(e)}")
 
+            # Email to admin
             admin_email = settings.ADMIN_EMAIL
             admin_subject = f'RFQ #{rfq.rfq_no} Past Due Notification'
             admin_message = (
-                f'Hello Admin,\n\n'
-                f'{assign_to.name} (email: {assign_to.email}) is assigned to RFQ #{rfq.rfq_no} for {rfq.company_name}.\n'
-                f'The due date for this RFQ has passed and it remains incomplete.\n'
-                f'Regards,\nPrimeCRM Team'
+                f'Dear Admin,\n\n'
+                f'We would like to inform you that the following RFQ is past due:\n'
+                f'------------------------------------------------------------\n'
+                f'🔹 RFQ Number: {rfq.rfq_no}\n'
+                f'🔹 Assigned To: {assign_to.name} ({assign_to.email})\n'
+                f'🔹 Team: {rfq.company_name or "N/A"}\n'
+                f'🔹 Due Date: {rfq.due_date}\n'
+                f'🔹 Status: {rfq.current_status or "Processing"}\n'
+                f'------------------------------------------------------------\n'
+                f'Please take any necessary actions or follow up as required.\n\n'
+                f'Best regards,\n'
+                f'PrimeCRM Team\n'
+                f'---\n'
+                f'This is an automated message. Please do not reply to this email.'
             )
             try:
                 send_mail(
