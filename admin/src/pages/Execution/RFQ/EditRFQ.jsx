@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Plus, Trash, X } from "lucide-react";
 import { toast } from "react-toastify";
@@ -8,7 +8,7 @@ import ClientSelectionModal from "../../../components/ClientSelectionModal";
 const EditRFQ = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { rfqData, isEditing } = location.state || {};
+  const { rfqData, isEditing, isQuotationMode = false } = location.state || {};
   const [formData, setFormData] = useState(null);
   const [rfqChannels, setRfqChannels] = useState([]);
   const [items, setItems] = useState([]);
@@ -18,6 +18,13 @@ const EditRFQ = () => {
   const [error, setError] = useState(null);
   const [showClientModal, setShowClientModal] = useState(!rfqData?.company_name && isEditing);
   const [isClientSelected, setIsClientSelected] = useState(!!rfqData?.company_name);
+  const itemsSectionRef = useRef(null);
+
+  useEffect(() => {
+    if (isQuotationMode && itemsSectionRef.current) {
+      itemsSectionRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [isQuotationMode, formData]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -48,16 +55,16 @@ const EditRFQ = () => {
           item_name: item.item_name || "",
           quantity: String(item.quantity) || "",
           unit: item.unit || "",
-          unit_price: String(item.unit_price) || "",
+          unit_price: String(item.unit_price) || "0",
         })) || [
-          {
-            id: Date.now(),
-            item_name: "",
-            quantity: "",
-            unit: "",
-            unit_price: "",
-          },
-        ];
+            {
+              id: Date.now(),
+              item_name: "",
+              quantity: "",
+              unit: "",
+              unit_price: "0",
+            },
+          ];
 
         setFormData({
           company_name: rfqResponse.data.company_name || "",
@@ -132,6 +139,7 @@ const EditRFQ = () => {
   };
 
   const handleSingleInputChange = (e) => {
+    if (isQuotationMode) return; // Prevent changes in quotation mode
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -157,7 +165,7 @@ const EditRFQ = () => {
           item_name: "",
           quantity: "",
           unit: "",
-          unit_price: "",
+          unit_price: "0",
         },
       ],
     }));
@@ -175,16 +183,18 @@ const EditRFQ = () => {
   };
 
   const validateSingleFields = () => {
-    const requiredFields = [
-      "company_name",
-      "company_address",
-      "company_phone",
-      "company_email",
-      "due_date",
-      "assign_to",
-    ];
-    for (const field of requiredFields) {
-      if (!formData[field]) return `${field.replace("_", " ")} is required`;
+    if (!isQuotationMode) {
+      const requiredFields = [
+        "company_name",
+        "company_address",
+        "company_phone",
+        "company_email",
+        "due_date",
+        "assign_to",
+      ];
+      for (const field of requiredFields) {
+        if (!formData[field]) return `${field.replace("_", " ")} is required`;
+      }
     }
     return null;
   };
@@ -194,6 +204,9 @@ const EditRFQ = () => {
     if (!entry.quantity) return "Quantity is required";
     if (parseFloat(entry.quantity) < 1) return "Quantity must be at least 1";
     if (!entry.unit) return "Unit is required";
+    if (isQuotationMode && (entry.unit_price === "" || parseFloat(entry.unit_price) < 0)) {
+      return "Unit price must be non-negative";
+    }
     return null;
   };
 
@@ -218,34 +231,76 @@ const EditRFQ = () => {
       }
     }
 
-    const payload = {
-      company_name: formData.company_name,
-      reference: formData.reference || null,
-      address: formData.company_address,
-      phone: formData.company_phone,
-      email: formData.company_email,
-      rfq_channel: formData.rfq_channel || null,
-      attention_name: formData.attention_name || null,
-      attention_phone: formData.attention_phone || null,
-      attention_email: formData.attention_email || null,
-      due_date: formData.due_date,
-      assign_to: formData.assign_to ? parseInt(formData.assign_to) : null,
-      items: formData.items.map((item) => ({
-        id: item.id,
-        item_name: item.item_name || null,
-        quantity: parseFloat(item.quantity) || null,
-        unit: item.unit || null,
-        unit_price: parseFloat(item.unit_price) || null,
-      })),
-    };
+    if (isQuotationMode) {
+      const payload = {
+        rfq: rfqData.id,
+        company_name: formData.company_name || null,
+        address: formData.company_address || null,
+        phone: formData.company_phone || null,
+        email: formData.company_email || null,
+        attention_name: formData.attention_name || null,
+        attention_phone: formData.attention_phone || null,
+        attention_email: formData.attention_email || null,
+        due_date: formData.due_date || null,
+        items: formData.items.map((item) => ({
+          item_name: item.item_name || null,
+          quantity: parseFloat(item.quantity) || null,
+          unit: item.unit || null,
+          unit_price: parseFloat(item.unit_price) || 0,
+        })),
+      };
 
-    try {
-      await apiClient.put(`/add-rfqs/${rfqData.id}/`, payload);
-      toast.success("RFQ updated successfully!");
-      navigate("/pre-job/view-rfq", { state: { refresh: true } });
-    } catch (error) {
-      console.error("Error updating RFQ:", error.response?.data || error.message);
-      toast.error("Failed to update RFQ. Please check the required fields.");
+      try {
+        const response = await apiClient.post("/quotations/", payload);
+        toast.success("Quotation created successfully!");
+        navigate("/pre-job/view-quotation", {
+          state: { quotationId: response.data.id, refresh: true },
+        });
+      } catch (err) {
+        console.error("Failed to create quotation:", err);
+        let errorMessage =
+          "Failed to create quotation. Please try again or contact support.";
+        if (err.response?.data?.detail) {
+          errorMessage = err.response.data.detail;
+        } else if (err.response?.data?.non_field_errors) {
+          errorMessage = err.response.data.non_field_errors.join(", ");
+        } else if (err.response?.data?.items) {
+          errorMessage = err.response.data.items
+            .map((item) => item.unit_price || item)
+            .join(", ");
+        }
+        toast.error(errorMessage);
+      }
+    } else {
+      const payload = {
+        company_name: formData.company_name,
+        reference: formData.reference || null,
+        address: formData.company_address,
+        phone: formData.company_phone,
+        email: formData.company_email,
+        rfq_channel: formData.rfq_channel || null,
+        attention_name: formData.attention_name || null,
+        attention_phone: formData.attention_phone || null,
+        attention_email: formData.attention_email || null,
+        due_date: formData.due_date,
+        assign_to: formData.assign_to ? parseInt(formData.assign_to) : null,
+        items: formData.items.map((item) => ({
+          id: item.id,
+          item_name: item.item_name || null,
+          quantity: parseFloat(item.quantity) || null,
+          unit: item.unit || null,
+          unit_price: parseFloat(item.unit_price) || null,
+        })),
+      };
+
+      try {
+        await apiClient.put(`/add-rfqs/${rfqData.id}/`, payload);
+        toast.success("RFQ updated successfully!");
+        navigate("/pre-job/view-rfq", { state: { refresh: true } });
+      } catch (error) {
+        console.error("Error updating RFQ:", error.response?.data || error.message);
+        toast.error("Failed to update RFQ. Please check the required fields.");
+      }
     }
   };
 
@@ -332,7 +387,7 @@ const EditRFQ = () => {
   ];
 
   const repeatableFields = (entryId) => {
-    return [
+    const fields = [
       {
         name: "item_name",
         label: "Item",
@@ -361,12 +416,13 @@ const EditRFQ = () => {
         name: "unit_price",
         label: "Unit Price",
         type: "number",
-        required: false,
+        required: isQuotationMode,
         min: 0,
         step: "0.01",
         placeholder: "Enter Unit Price",
       },
     ];
+    return fields;
   };
 
   const renderField = (field, entryId = null) => {
@@ -374,6 +430,7 @@ const EditRFQ = () => {
       ? formData.items.find((e) => e.id === entryId)?.[field.name] || ""
       : formData[field.name] || "";
     const options = field.options || [];
+    const isDisabled = isQuotationMode && !entryId;
 
     if (field.type === "select") {
       return (
@@ -394,8 +451,10 @@ const EditRFQ = () => {
             onChange={(e) =>
               entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e)
             }
-            className="w-full text-sm p-2 border border-gray-400 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+            className={`w-full text-sm p-2 border border-gray-400 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500 ${isDisabled ? "bg-gray-100 text-black cursor-not-allowed" : ""
+              }`}
             aria-required={field.required}
+            disabled={isDisabled}
           >
             <option value="" disabled>
               {field.placeholder}
@@ -428,8 +487,10 @@ const EditRFQ = () => {
           placeholder={field.placeholder}
           min={field.min}
           step={field.step}
-          className="w-full text-sm p-2 border border-gray-400 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500"
+          className={`w-full text-sm p-2 border border-gray-400 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500 ${isDisabled ? "bg-gray-100 text-black cursor-not-allowed" : ""
+            }`}
           aria-required={field.required}
+          disabled={isDisabled}
         />
       </div>
     );
@@ -468,7 +529,7 @@ const EditRFQ = () => {
             </svg>
           </button>
           <h1 className="text-xl font-semibold text-black">
-            Edit RFQ #{formData.rfq_no}
+            {isQuotationMode ? `Edit Quotation for RFQ #${formData.rfq_no}` : `Edit RFQ #${formData.rfq_no}`}
           </h1>
         </div>
       </div>
@@ -486,13 +547,6 @@ const EditRFQ = () => {
                     className="w-full text-sm p-2 border border-gray-400 rounded bg-gray-100 text-black"
                     placeholder="Selected Client"
                   />
-                  <button
-                    type="button"
-                    onClick={handleClearClient}
-                    className="ml-2 bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors duration-200"
-                  >
-                    <X size={16} />
-                  </button>
                 </div>
               ) : (
                 <div className="mb-4">
@@ -526,7 +580,7 @@ const EditRFQ = () => {
                 </div>
               </div>
             </div>
-            <div className="p-4 bg-white rounded-lg shadow-sm">
+            <div ref={itemsSectionRef} className="p-4 bg-white rounded-lg shadow-sm">
               <h3 className="text-md font-medium text-black mb-4">RFQ Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
                 {fields.slice(9, 11).map((field) => renderField(field))}
@@ -544,11 +598,10 @@ const EditRFQ = () => {
                       type="button"
                       onClick={() => removeFormBlock(entry.id)}
                       disabled={formData.items.length === 1}
-                      className={`text-sm px-3 py-2 rounded flex items-center transition-colors duration-200 ${
-                        formData.items.length === 1
+                      className={`text-sm px-3 py-2 rounded flex items-center transition-colors duration-200 ${formData.items.length === 1
                           ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                           : "bg-red-500 text-white hover:bg-red-600"
-                      }`}
+                        }`}
                     >
                       <Trash size="16" className="mr-1" /> Remove
                     </button>
@@ -570,7 +623,7 @@ const EditRFQ = () => {
               disabled={loading}
               className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
             >
-              {loading ? "Updating..." : "Update"}
+              {loading ? (isQuotationMode ? "Generating..." : "Updating...") : (isQuotationMode ? "Generate Quote" : "Update")}
             </button>
           </div>
         </form>

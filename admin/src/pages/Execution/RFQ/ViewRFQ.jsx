@@ -13,9 +13,6 @@ const ViewRFQ = () => {
   const [error, setError] = useState(null);
   const [selectedRfq, setSelectedRfq] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [showQuotationModal, setShowQuotationModal] = useState(false);
-  const [convertRfq, setConvertRfq] = useState(null);
-  const [quotationItems, setQuotationItems] = useState([]);
   const itemsPerPage = 20;
 
   const fetchRfqs = async () => {
@@ -57,112 +54,9 @@ const ViewRFQ = () => {
   }, [location.state]);
 
   const handleConvertToQuotation = (rfq) => {
-    setConvertRfq(rfq);
-    setQuotationItems(
-      rfq.items.map((item) => ({
-        ...item,
-        unit_price: item.unit_price || 0,
-        error: null,
-      }))
-    );
-    setShowQuotationModal(true);
-  };
-
-  const handleUnitPriceChange = (itemId, value) => {
-    const unitPrice = value === "" ? "" : parseFloat(value) || 0;
-    setQuotationItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              unit_price: unitPrice,
-              error:
-                unitPrice === "" || unitPrice < 0
-                  ? "Unit price must be non-negative"
-                  : null,
-            }
-          : item
-      )
-    );
-  };
-
-  const applyDefaultUnitPrice = (defaultPrice) => {
-    const parsedPrice = parseFloat(defaultPrice) || 0;
-    if (parsedPrice < 0) {
-      toast.error("Default unit price must be non-negative.");
-      return;
-    }
-    setQuotationItems((prev) =>
-      prev.map((item) => ({
-        ...item,
-        unit_price: parsedPrice,
-        error: null,
-      }))
-    );
-  };
-
-  const validateQuotationItems = () => {
-    let isValid = true;
-    const updatedItems = quotationItems.map((item) => {
-      if (item.unit_price === "" || item.unit_price == null || item.unit_price < 0) {
-        isValid = false;
-        return { ...item, error: "Unit price must be non-negative" };
-      }
-      return { ...item, error: null };
+    navigate("/pre-job/edit-rfq", {
+      state: { rfqData: rfq, isEditing: true, isQuotationMode: true },
     });
-    setQuotationItems(updatedItems);
-    return isValid;
-  };
-
-  const submitQuotation = async () => {
-    if (!validateQuotationItems()) {
-      toast.error("Please fix all unit price errors before submitting.");
-      return;
-    }
-
-    const payload = {
-      rfq: convertRfq.id,
-      company_name: convertRfq.company_name || null,
-      address: convertRfq.address || null,
-      phone: convertRfq.phone || null,
-      email: convertRfq.email || null,
-      attention_name: convertRfq.attention_name || null,
-      attention_phone: convertRfq.attention_phone || null,
-      attention_email: convertRfq.attention_email || null,
-      due_date: convertRfq.due_date || null,
-      items: quotationItems.map((item) => ({
-        item_name: item.item_name || null,
-        quantity: item.quantity || 1,
-        unit: item.unit || null,
-        unit_price: item.unit_price,
-      })),
-    };
-
-    try {
-      const response = await apiClient.post("/quotations/", payload);
-      toast.success("Quotation created successfully!");
-      setShowQuotationModal(false);
-      setConvertRfq(null);
-      setQuotationItems([]);
-      const quotation = response.data;
-      navigate("/pre-job/view-quotation", {
-        state: { quotationId: quotation.id, refresh: true },
-      });
-    } catch (err) {
-      console.error("Failed to create quotation:", err);
-      let errorMessage =
-        "Failed to create quotation. Please try again or contact support.";
-      if (err.response?.data?.detail) {
-        errorMessage = err.response.data.detail;
-      } else if (err.response?.data?.non_field_errors) {
-        errorMessage = err.response.data.non_field_errors.join(", ");
-      } else if (err.response?.data?.items) {
-        errorMessage = err.response.data.items
-          .map((item) => item.unit_price || item)
-          .join(", ");
-      }
-      toast.error(errorMessage);
-    }
   };
 
   const handlePrint = (rfq) => {
@@ -456,95 +350,6 @@ const ViewRFQ = () => {
                 className="bg-gray-200 text-black px-3 py-2 rounded hover:bg-gray-300 transition-colors duration-200"
               >
                 Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showQuotationModal && convertRfq && (
-        <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-sm p-6 w-full max-w-lg">
-            <h3 className="text-lg font-semibold mb-3 text-black border-b pb-2">
-              Create Quotation for RFQ #{convertRfq.rfq_no}
-            </h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Set Default Unit Price for All Items
-              </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Enter default price"
-                  onChange={(e) => applyDefaultUnitPrice(e.target.value)}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-                <button
-                  onClick={() => applyDefaultUnitPrice(0)}
-                  className="bg-gray-200 text-black px-3 py-2 rounded hover:bg-gray-300"
-                >
-                  Set to $0
-                </button>
-              </div>
-            </div>
-            <h4 className="text-md font-semibold mb-2 text-black">Items</h4>
-            {quotationItems.length > 0 ? (
-              quotationItems.map((item) => (
-                <div key={item.id} className="mb-3 p-3 border rounded">
-                  <p className="text-sm text-black">
-                    <strong>Item:</strong> {item.item_name || ""}
-                  </p>
-                  <p className="text-sm text-black">
-                    <strong>Quantity:</strong> {item.quantity || ""} {item.unit || ""}
-                  </p>
-                  <div className="mt-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Unit Price ($)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.unit_price}
-                      onChange={(e) =>
-                        handleUnitPriceChange(item.id, e.target.value)
-                      }
-                      className={`w-full p-2 border rounded focus:outline-none focus:ring-1 ${
-                        item.error
-                          ? "border-red-500 focus:ring-red-500"
-                          : "focus:ring-indigo-500"
-                      }`}
-                    />
-                    {item.error && (
-                      <p className="text-red-500 text-xs mt-1">{item.error}</p>
-                    )}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500">
-                No items available for this RFQ.
-              </p>
-            )}
-            <div className="mt-4 flex justify-end space-x-2">
-              <button
-                onClick={submitQuotation}
-                className="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 transition-colors duration-200"
-                disabled={quotationItems.length === 0}
-              >
-                Create Quotation
-              </button>
-              <button
-                onClick={() => {
-                  setShowQuotationModal(false);
-                  setConvertRfq(null);
-                  setQuotationItems([]);
-                }}
-                className="bg-gray-200 text-black px-3 py-2 rounded hover:bg-gray-300 transition-colors duration-200"
-              >
-                Cancel
               </button>
             </div>
           </div>
