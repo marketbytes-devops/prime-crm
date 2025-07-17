@@ -52,7 +52,7 @@ const Layout = ({ isAuthenticated, setIsAuthenticated }) => {
   console.log("Rendering Layout with Outlet");
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen">
       <motion.div
         className={`fixed inset-y-0 left-0 z-30 w-72 bg-gray-900 text-white transform ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -73,7 +73,7 @@ const Layout = ({ isAuthenticated, setIsAuthenticated }) => {
         <div
           className={`fixed top-0 left-0 right-0 z-10 ${
             isSidebarOpen ? "md:left-72" : "left-0"
-          } bg-gray-100 shadow-md`}
+          } bg-white shadow-md`}
         >
           <Topbar
             toggleSidebar={toggleSidebar}
@@ -84,7 +84,7 @@ const Layout = ({ isAuthenticated, setIsAuthenticated }) => {
           />
         </div>
         <main
-          className={`bg-gradient-to-b from-blue-50 via-indigo-50 to-gray-200 flex-1 pt-20 p-6 ${
+          className={`bg-gradient-to-b from-blue-50 via-gray-50 to-indigo-50 flex-1 pt-20 p-6 ${
             isSidebarOpen ? "md:ml-72" : "ml-0"
           } overflow-auto`} 
         >

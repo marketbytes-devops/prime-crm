@@ -17,15 +17,16 @@ const ClientSelectionModal = ({ onClose, onSelect }) => {
           exit={{ scale: 0.8, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-indigo-600">Select Client Type</h2>
+        ><div className='flex items-center justify-end'>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-indigo-600 transition-colors rounded-full w-8 h-8 flex items-center justify-center hover:bg-gray-100"
+              className="text-gray-800 hover:text-indigo-600 transition-colors rounded-full w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-gray-300"
             >
-              ×
+              x
             </button>
+          </div>
+          <div className="flex justify-center items-center mb-6">
+            <h2 className="text-2xl font-bold text-indigo-600">Select Client Type</h2>
           </div>
           <div className="flex flex-col space-y-4">
             <button

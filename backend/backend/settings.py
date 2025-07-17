@@ -33,11 +33,11 @@ INSTALLED_APPS = [
     'authapp',
     'rfq',
     'rfqchannels',
-    'product',
     'item',
     'team',
     'series',
     'quotation',
+    # 'job_execution',
 ]
 
 MIDDLEWARE = [

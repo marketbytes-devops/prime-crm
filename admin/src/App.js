@@ -13,7 +13,6 @@ import Profile from "./pages/Profile";
 import AddRFQ from "./pages/Execution/RFQ/AddRFQ";
 import ViewRFQ from "./pages/Execution/RFQ/ViewRFQ";
 import RFQChannels from "./pages/Settings/RFQChannels";
-import Product from "./pages/Settings/product";
 import Item from "./pages/Settings/items";
 import Unit from "./pages/Settings/Unit";
 import ExistingClient from "./components/ExistingClient/ExistingClient";
@@ -23,7 +22,10 @@ import NumberSeries from "./components/NumberSeries";
 import ViewQuotation from "./pages/Execution/Quotation/ViewQuotation";
 import EditQuotation from "./pages/Execution/Quotation/EditQuotation";
 import InitiateWorkOrder from "./pages/JobExecution/InitiateWorkOrder";
-import ProcessingWorkOrder from "./pages/JobExecution/ProcessingWorkOrder";
+import ProcessingWorkOrders from "./pages/JobExecution/ProcessingWorkOrders";
+import CloseWorkOrder from "./pages/JobExecution/CloseWorkOrder";
+import Delivery from "./pages/JobExecution/Delivery";
+import ManagerApproval from "./pages/JobExecution/ManagerApproval";
 
 const ProtectedRoute = ({ children, isAuthenticated }) => {
   console.log("ProtectedRoute - isAuthenticated:", isAuthenticated);
@@ -89,19 +91,32 @@ function App() {
         },
         {
           path: "/job-execution/initiate-work-order",
-          element: <InitiateWorkOrder />,
+          element:
+            <InitiateWorkOrder/>,
         },
         {
           path: "/job-execution/processing-work-orders",
-          element: <ProcessingWorkOrder />,
+          element:
+            <ProcessingWorkOrders/>,
+        },
+        {
+          path: "/job-execution/manager-approval",
+          element:
+            <ManagerApproval/>,
+        },
+        {
+          path: "/job-execution/delivery",
+          element:
+            <Delivery/>,
+        },
+        {
+          path: "/job-execution/close-work-order",
+          element:
+            <CloseWorkOrder />,
         },
         {
           path: "/settings/rfq-channel",
           element: <RFQChannels />,
-        },
-        {
-          path: "/settings/product",
-          element: <Product />,
         },
         {
           path: "/settings/team",

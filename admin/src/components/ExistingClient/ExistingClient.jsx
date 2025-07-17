@@ -141,10 +141,10 @@ const ExistingClient = () => {
             placeholder="Search clients..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500 text-sm"
+            className="w-full p-2 border border-gray-400 rounded focus:outline-indigo-500 focus:ring focus:ring-indigo-500 text-sm"
           />
           {searchQuery && filteredClients.length > 0 && (
-            <ul className="absolute z-10 w-full max-w-md bg-white border border-gray-300 rounded mt-1 max-h-40 overflow-y-auto">
+            <ul className="absolute z-10 w-full max-w-md bg-white border border-gray-400 rounded mt-1 max-h-40 overflow-y-auto">
               {filteredClients.map((client) => (
                 <li
                   key={client.id}

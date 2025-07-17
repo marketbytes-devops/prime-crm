@@ -23,7 +23,7 @@ const Topbar = ({ toggleSidebar, isSidebarOpen, isAuthenticated, setIsAuthentica
 
   return (
     <motion.div
-      className="flex items-center justify-between p-4 bg-gray-100 text-black shadow-md"
+      className="flex items-center justify-between p-4 bg-white text-black shadow-md"
       initial={{ opacity: 0, y: -50 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.1 }}

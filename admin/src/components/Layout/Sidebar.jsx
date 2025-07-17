@@ -8,7 +8,6 @@ import {
   FileText,
   ListOrdered,
   Wrench,
-  CheckCircle,
   User,
   Settings,
   Send,
@@ -17,6 +16,11 @@ import {
   SquaresUnite,
   Users,
   MessageSquareQuote,
+  CheckSquare,
+  Truck,
+  ArchiveRestore,
+  FileSearch,
+  FileEdit,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import logo from "../../assets/images/img-logo.png";
@@ -26,10 +30,17 @@ const Sidebar = ({ toggleSidebar }) => {
   const [isPreJobOpen, setIsPreJobOpen] = useState(false);
   const [isJobExecutionOpen, setIsJobExecutionOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isRFQOpen, setIsRFQOpen] = useState(false);
 
   useEffect(() => {
     const preJobPaths = ["/pre-job/add-rfq", "/pre-job/view-rfq", "/pre-job/view-quotation"];
-    const jobExecutionPaths = ["/job-execution/initiate-work-order", "/job-execution/processing-work-orders"];
+    const jobExecutionPaths = [
+      "/job-execution/initiate-work-order",
+      "/job-execution/processing-work-orders",
+      "/job-execution/manager-approval",
+      "/job-execution/delivery",
+      "/job-execution/close-work-order",
+    ];
     const settingsPaths = [
       "/settings/rfq-channel",
       "/settings/product",
@@ -38,14 +49,18 @@ const Sidebar = ({ toggleSidebar }) => {
       "/settings/team",
       "/settings/series",
     ];
+    const rfqPaths = ["/pre-job/add-rfq", "/pre-job/view-rfq"];
+
     setIsPreJobOpen(preJobPaths.includes(location.pathname));
     setIsJobExecutionOpen(jobExecutionPaths.includes(location.pathname));
     setIsSettingsOpen(settingsPaths.includes(location.pathname));
+    setIsRFQOpen(rfqPaths.includes(location.pathname));
   }, [location.pathname]);
 
   const togglePreJob = () => setIsPreJobOpen(!isPreJobOpen);
   const toggleJobExecution = () => setIsJobExecutionOpen(!isJobExecutionOpen);
   const toggleSettings = () => setIsSettingsOpen(!isSettingsOpen);
+  const toggleRFQ = () => setIsRFQOpen(!isRFQOpen);
 
   const isMobile = () => window.matchMedia("(max-width: 767px)").matches;
 
@@ -55,8 +70,14 @@ const Sidebar = ({ toggleSidebar }) => {
       label: "Pre-Job",
       icon: <FileText className="w-5 h-5 mr-3" />,
       subItems: [
-        { to: "/pre-job/add-rfq", label: "Add RFQ", icon: <FilePlus className="w-5 h-5 mr-3" /> },
-        { to: "/pre-job/view-rfq", label: "View RFQ", icon: <FileText className="w-5 h-5 mr-3" /> },
+        {
+          label: "RFQ",
+          icon: <FileSearch className="w-5 h-5 mr-3" />,
+          subItems: [
+            { to: "/pre-job/add-rfq", label: "Add RFQ", icon: <FilePlus className="w-5 h-5 mr-3" /> },
+            { to: "/pre-job/view-rfq", label: "View RFQ", icon: <FileSearch className="w-5 h-5 mr-3" /> },
+          ],
+        },
         { to: "/pre-job/view-quotation", label: "Quotation", icon: <MessageSquareQuote className="w-5 h-5 mr-3" /> },
       ],
     },
@@ -66,21 +87,18 @@ const Sidebar = ({ toggleSidebar }) => {
       subItems: [
         { to: "/job-execution/initiate-work-order", label: "Initiate Work Order", icon: <ListOrdered className="w-5 h-5 mr-3" /> },
         { to: "/job-execution/processing-work-orders", label: "Processing Work Orders", icon: <Wrench className="w-5 h-5 mr-3" /> },
+        { to: "/job-execution/manager-approval", label: "Manager Approval", icon: <CheckSquare className="w-5 h-5 mr-3" /> },
+        { to: "/job-execution/delivery", label: "Delivery", icon: <Truck className="w-5 h-5 mr-3" /> },
+        { to: "/job-execution/close-work-order", label: "Close Work Order", icon: <ArchiveRestore className="w-5 h-5 mr-3" /> },
       ],
     },
-    // {
-    //   to: "/post-job/completed-wo",
-    //   label: "Completed WO",
-    //   icon: <CheckCircle className="w-5 h-5 mr-3" />,
-    // },
     { to: "/profile", label: "Profile", icon: <User className="w-5 h-5 mr-3" /> },
     {
       label: "Settings",
       icon: <Settings className="w-5 h-5 mr-3" />,
       subItems: [
-        { to: "/settings/series", label: "Series", icon: <Users className="w-5 h-5 mr-3" /> },
+        { to: "/settings/series", label: "Series", icon: <FileEdit className="w-5 h-5 mr-3" /> },
         { to: "/settings/rfq-channel", label: "RFQ Channel", icon: <Send className="w-5 h-5 mr-3" /> },
-        { to: "/settings/product", label: "Product", icon: <Archive className="w-5 h-5 mr-3" /> },
         { to: "/settings/item", label: "Item", icon: <Tag className="w-5 h-5 mr-3" /> },
         { to: "/settings/unit", label: "Unit", icon: <SquaresUnite className="w-5 h-5 mr-3" /> },
         { to: "/settings/team", label: "Team", icon: <Users className="w-5 h-5 mr-3" /> },
@@ -112,9 +130,15 @@ const Sidebar = ({ toggleSidebar }) => {
                         ? toggleJobExecution
                         : toggleSettings
                     }
-                    className="flex items-center justify-between w-full px-3 py-3 rounded-lg text-gray-700 hover:bg-indigo-500 hover:text-white transition-colors duration-200"
+                    className={`flex items-center justify-between w-full px-3 py-3 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                      (item.label === "Pre-Job" && isPreJobOpen) ||
+                      (item.label === "Job Execution" && isJobExecutionOpen) ||
+                      (item.label === "Settings" && isSettingsOpen)
+                        ? "bg-indigo-100 text-indigo-600"
+                        : "text-gray-700 hover:bg-indigo-500 hover:text-white"
+                    }`}
                   >
-                    <span className="flex items-center text-sm font-medium">
+                    <span className="flex items-center">
                       {item.icon}
                       {item.label}
                     </span>
@@ -130,10 +154,12 @@ const Sidebar = ({ toggleSidebar }) => {
                       ) : (
                         <ChevronDown className="w-4 h-4" />
                       )
-                    ) : isSettingsOpen ? (
-                      <ChevronUp className="w-4 h-4" />
                     ) : (
-                      <ChevronDown className="w-4 h-4" />
+                      isSettingsOpen ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )
                     )}
                   </button>
                   <AnimatePresence>
@@ -147,18 +173,67 @@ const Sidebar = ({ toggleSidebar }) => {
                       >
                         {item.subItems.map((subItem, subIndex) => (
                           <li key={subIndex}>
-                            <NavLink
-                              to={subItem.to}
-                              className={({ isActive }) =>
-                                `flex items-center px-3 py-3 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                                  isActive ? "bg-indigo-500 text-white" : "text-gray-600 hover:bg-indigo-100 hover:text-indigo-600"
-                                }`
-                              }
-                              onClick={() => isMobile() && toggleSidebar()}
-                            >
-                              {subItem.icon}
-                              {subItem.label}
-                            </NavLink>
+                            {subItem.subItems ? (
+                              <>
+                                <button
+                                  onClick={toggleRFQ}
+                                  className={`flex items-center justify-between w-full px-3 py-3 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                                    isRFQOpen ? "bg-indigo-100 text-indigo-600" : "text-gray-600 hover:bg-indigo-100 hover:text-indigo-600"
+                                  }`}
+                                >
+                                  <span className="flex items-center">
+                                    {subItem.icon}
+                                    {subItem.label}
+                                  </span>
+                                  {isRFQOpen ? (
+                                    <ChevronUp className="w-4 h-4" />
+                                  ) : (
+                                    <ChevronDown className="w-4 h-4" />
+                                  )}
+                                </button>
+                                <AnimatePresence>
+                                  {isRFQOpen && (
+                                    <motion.ul
+                                      className="ml-4 mt-1 space-y-1"
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: "auto", opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                    >
+                                      {subItem.subItems.map((nestedItem, nestedIndex) => (
+                                        <li key={nestedIndex}>
+                                          <NavLink
+                                            to={nestedItem.to}
+                                            className={({ isActive }) =>
+                                              `flex items-center px-3 py-3 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                                                isActive ? "bg-indigo-500 text-white" : "text-gray-600 hover:bg-indigo-100 hover:text-indigo-600"
+                                              }`
+                                            }
+                                            onClick={() => isMobile() && toggleSidebar()}
+                                          >
+                                            {nestedItem.icon}
+                                            {nestedItem.label}
+                                          </NavLink>
+                                        </li>
+                                      ))}
+                                    </motion.ul>
+                                  )}
+                                </AnimatePresence>
+                              </>
+                            ) : (
+                              <NavLink
+                                to={subItem.to}
+                                className={({ isActive }) =>
+                                  `flex items forces-item-align-center px-3 py-3 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                                    isActive ? "bg-indigo-500 text-white" : "text-gray-600 hover:bg-indigo-100 hover:text-indigo-600"
+                                  }`
+                                }
+                                onClick={() => isMobile() && toggleSidebar()}
+                              >
+                                {subItem.icon}
+                                {subItem.label}
+                              </NavLink>
+                            )}
                           </li>
                         ))}
                       </motion.ul>

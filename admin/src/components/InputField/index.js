@@ -1,5 +1,3 @@
-import React from 'react';
-
 const InputField = ({ type, placeholder, value, onChange, maxLength, pattern, title }) => {
   return (
     <input

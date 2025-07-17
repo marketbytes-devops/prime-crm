@@ -2,12 +2,12 @@ const ViewCard = ({ singleFields, repeatableFields, title, showRepeatableFields,
   const renderFieldValue = (field, data) => {
     if (field.name.includes('.')) {
       const [parent, child] = field.name.split('.');
-      return data[parent]?.[child] || 'N/A';
+      return data[parent]?.[child] || '';
     }
     if (field.type === 'date') {
-      return data[field.name] ? new Date(data[field.name]).toLocaleDateString() : 'N/A';
+      return data[field.name] ? new Date(data[field.name]).toLocaleDateString() : '';
     }
-    return data[field.name] || 'N/A';
+    return data[field.name] || '';
   };
 
   return (
@@ -52,7 +52,7 @@ const ViewCard = ({ singleFields, repeatableFields, title, showRepeatableFields,
                     <td key={field.name} className="px-4 py-2 text-sm text-gray-800">
                       {field.name === 'unit_price' || field.name === 'total_price'
                         ? `$${Number(item[field.name] || 0).toFixed(2)}`
-                        : item[field.name] || 'N/A'}
+                        : item[field.name] || ''}
                     </td>
                   ))}
                 </tr>
