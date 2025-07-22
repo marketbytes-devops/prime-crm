@@ -587,78 +587,103 @@ const ViewQuotation = () => {
             </tr>
           </thead>
           <tbody>
-            {currentQuotations.map((quotation) => (
-              <tr
-                key={quotation.id}
-                className={`border-t hover:bg-gray-50 ${quotation.is_due_reminder ? "bg-red-50" : ""}`}
-              >
-                {tableFields.map((field) => (
-                  <td
-                    key={field.name}
-                    className="px-4 py-3 text-sm text-black whitespace-nowrap"
-                  >
-                    {field.name === "current_status" ? (
-                      <select
-                        value={quotation.current_status || "Pending"}
-                        onChange={(e) => updateStatus(quotation.id, e.target.value)}
-                        className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        disabled={loading}
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Approved">Approved</option>
-                        <option value="PO Created">PO Created</option>
-                      </select>
-                    ) : field.name === "latest_remarks" ? (
-                      <input
-                        type="text"
-                        value={quotation.latest_remarks || ""}
-                        onChange={(e) => handleAddRemark(quotation.id, e.target.value)}
-                        className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        placeholder="Add remark"
-                      />
-                    ) : field.name.includes("rfq_details.") ? (
-                      quotation.rfq_details[field.name.split(".")[1]] || ""
-                    ) : field.type === "date" ? (
-                      quotation[field.name]
-                        ? new Date(quotation[field.name]).toLocaleDateString()
-                        : ""
-                    ) : (
-                      quotation[field.name] || ""
-                    )}
-                    {field.name === "next_followup_date" && quotation.is_due_reminder && (
-                      <span className="text-red-600 text-xs ml-2">(Due Reminder)</span>
-                    )}
-                  </td>
-                ))}
-                <td className="px-4 py-3 text-sm text-black flex space-x-2 whitespace-nowrap">
-                  <button
-                    onClick={() => setSelectedQuotation(quotation)}
-                    className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
-                  >
-                    View Details
-                  </button>
-                  {(!quotation.purchase_order || quotation.purchase_order.length === 0) && (
-                    <button
-                      onClick={() => handleConvertToPurchaseOrder(quotation)}
-                      className={`px-3 py-2 text-sm rounded transition-colors duration-200 ${
-                        quotation.current_status === "Approved"
-                          ? "bg-green-500 text-white hover:bg-green-600"
-                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      }`}
-                      disabled={quotation.current_status !== "Approved"}
+            {currentQuotations.map((quotation) => {
+              const hasPartialOrders = location.state?.partialOrders && location.state.quotationId === quotation.id;
+              const allPartialOrdersCreated = hasPartialOrders && location.state.partialOrders.length > 0;
+
+              return (
+                <tr
+                  key={quotation.id}
+                  className={`border-t hover:bg-gray-50 ${quotation.is_due_reminder ? "bg-red-50" : ""}`}
+                >
+                  {tableFields.map((field) => (
+                    <td
+                      key={field.name}
+                      className="px-4 py-3 text-sm text-black whitespace-nowrap"
                     >
-                      Convert to PO
+                      {field.name === "current_status" ? (
+                        <select
+                          value={quotation.current_status || "Pending"}
+                          onChange={(e) => updateStatus(quotation.id, e.target.value)}
+                          className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          disabled={loading}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Approved">Approved</option>
+                          <option value="PO Created">PO Created</option>
+                        </select>
+                      ) : field.name === "latest_remarks" ? (
+                        <input
+                          type="text"
+                          value={quotation.latest_remarks || ""}
+                          onChange={(e) => handleAddRemark(quotation.id, e.target.value)}
+                          className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          placeholder="Add remark"
+                        />
+                      ) : field.name.includes("rfq_details.") ? (
+                        quotation.rfq_details[field.name.split(".")[1]] || ""
+                      ) : field.type === "date" ? (
+                        quotation[field.name]
+                          ? new Date(quotation[field.name]).toLocaleDateString()
+                          : ""
+                      ) : (
+                        quotation[field.name] || ""
+                      )}
+                      {field.name === "next_followup_date" && quotation.is_due_reminder && (
+                        <span className="text-red-600 text-xs ml-2">(Due Reminder)</span>
+                      )}
+                    </td>
+                  ))}
+                  <td className="px-4 py-3 text-sm text-black flex space-x-2 whitespace-nowrap">
+                    <button
+                      onClick={() => setSelectedQuotation(quotation)}
+                      className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
+                    >
+                      View Details
                     </button>
-                  )}
-                  <button
-                    onClick={() => handlePrint(quotation)}
-                    className="bg-blue-500 text-white px-3 py-2 text-sm rounded hover:bg-blue-600 transition-colors duration-200 flex items-center"
-                  >
-                    <Printer size={16} className="mr-1" /> Print
-                  </button>
-                </td>
-              </tr>
-            ))}
+                    {(!quotation.purchase_order || quotation.purchase_order.length === 0) && (
+                      <button
+                        onClick={() => handleConvertToPurchaseOrder(quotation)}
+                        className={`px-3 py-2 text-sm rounded transition-colors duration-200 ${
+                          quotation.current_status === "Approved"
+                            ? "bg-green-500 text-white hover:bg-green-600"
+                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        }`}
+                        disabled={quotation.current_status !== "Approved"}
+                      >
+                        Convert to PO
+                      </button>
+                    )}
+                    {allPartialOrdersCreated && (
+                      <button
+                        onClick={() => {
+                          setConvertPurchaseOrder(quotation);
+                          setPurchaseOrderData({
+                            ...quotation,
+                            client_po_number: "",
+                            po_file: null,
+                            items: quotation.items.map((item) => ({
+                              ...item,
+                              quantity: item.quantity,
+                            })),
+                            order_type: "full",
+                          });
+                        }}
+                        className="bg-blue-500 text-white px-3 py-2 text-sm rounded hover:bg-blue-600 transition-colors duration-200"
+                      >
+                        Upload PO
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handlePrint(quotation)}
+                      className="bg-blue-500 text-white px-3 py-2 text-sm rounded hover:bg-blue-600 transition-colors duration-200 flex items-center"
+                    >
+                      <Printer size={16} className="mr-1" /> Print
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -732,6 +757,57 @@ const ViewQuotation = () => {
               showRepeatableFields={selectedQuotation.items && selectedQuotation.items.length > 0}
               initialData={selectedQuotation}
             />
+            {location.state?.partialOrders && location.state.quotationId === selectedQuotation.id && (
+              <div className="mt-4">
+                <h4 className="text-md font-semibold mb-2 text-black">Partial Orders</h4>
+                <div className="overflow-x-auto rounded-lg shadow-sm">
+                  <table className="min-w-full bg-white border border-gray-200">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap">
+                          Order #
+                        </th>
+                        <th className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap">
+                          Item/Product
+                        </th>
+                        <th className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap">
+                          Quantity
+                        </th>
+                        <th className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap">
+                          Unit
+                        </th>
+                        <th className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap">
+                          Unit Price
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {location.state.partialOrders.map((order, orderIndex) =>
+                        order.items.map((item, itemIndex) => (
+                          <tr key={`${orderIndex}-${itemIndex}`} className="border-t hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm text-black whitespace-nowrap">
+                              {orderIndex + 1}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-black whitespace-nowrap">
+                              {item.item_name || item.product_name || "N/A"}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-black whitespace-nowrap">
+                              {item.quantity || "N/A"}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-black whitespace-nowrap">
+                              {item.unit || "N/A"}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-black whitespace-nowrap">
+                              ${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             {selectedQuotation.purchase_order && selectedQuotation.purchase_order.length > 0 && (
               <>
                 {selectedQuotation.purchase_order.map((po, index) => (
