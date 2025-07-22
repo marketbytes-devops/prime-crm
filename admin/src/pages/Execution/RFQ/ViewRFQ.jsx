@@ -22,10 +22,22 @@ const ViewRFQ = () => {
       const data = Array.isArray(response.data)
         ? response.data
         : response.data.results || [];
-      const updatedRfqs = data.map((rfq, index) => ({
-        ...rfq,
-        si_no: index + 1,
-      }));
+      const updatedRfqs = await Promise.all(
+        data.map(async (rfq, index) => {
+          let hasQuotation = false;
+          try {
+            const quotationResponse = await apiClient.get(`/quotations/?rfq=${rfq.id}`);
+            hasQuotation = quotationResponse.data && (Array.isArray(quotationResponse.data) ? quotationResponse.data.length > 0 : quotationResponse.data.results?.length > 0);
+          } catch (err) {
+            console.warn(`No quotation check for RFQ ${rfq.id}:`, err);
+          }
+          return {
+            ...rfq,
+            si_no: index + 1,
+            hasQuotation,
+          };
+        })
+      );
       const sortedRfqs = updatedRfqs.sort(
         (a, b) => new Date(b.created_at) - new Date(a.created_at)
       );
@@ -43,17 +55,50 @@ const ViewRFQ = () => {
     }
   };
 
+  const updateRfqQuotationStatus = async (rfqId) => {
+    try {
+      const quotationResponse = await apiClient.get(`/quotations/?rfq=${rfqId}`);
+      const hasQuotation = quotationResponse.data && (Array.isArray(quotationResponse.data) ? quotationResponse.data.length > 0 : quotationResponse.data.results?.length > 0);
+      setRfqs((prev) =>
+        prev.map((rfq) =>
+          rfq.id === rfqId ? { ...rfq, hasQuotation } : rfq
+        )
+      );
+      const updatedRfq = rfqs.find((r) => r.id === rfqId);
+      if (updatedRfq) setSelectedRfq(updatedRfq);
+    } catch (err) {
+      console.error(`Failed to update quotation status for RFQ ${rfqId}:`, err);
+    }
+  };
+
+  const updateRfqStatus = async (rfqId, newStatus) => {
+    try {
+      const response = await apiClient.patch(`/add-rfqs/${rfqId}/`, { current_status: newStatus });
+      setRfqs((prev) =>
+        prev.map((rfq) => (rfq.id === rfqId ? { ...rfq, current_status: newStatus } : rfq))
+      );
+      toast.success("RFQ status updated successfully");
+    } catch (err) {
+      console.error("Failed to update RFQ status:", err);
+      toast.error("Failed to update RFQ status: " + (err.response?.data?.detail || "Unknown error"));
+    }
+  };
+
   useEffect(() => {
     fetchRfqs();
   }, []);
 
   useEffect(() => {
-    if (location.state?.refresh) {
-      fetchRfqs();
+    if (location.state?.refresh && location.state?.rfqId) {
+      updateRfqQuotationStatus(location.state.rfqId);
     }
   }, [location.state]);
 
   const handleConvertToQuotation = (rfq) => {
+    if (rfq.hasQuotation) {
+      toast.error("A quotation already exists for this RFQ.");
+      return;
+    }
     navigate("/pre-job/edit-rfq", {
       state: { rfqData: rfq, isEditing: true, isQuotationMode: true },
     });
@@ -92,6 +137,7 @@ const ViewRFQ = () => {
           <p><strong>Due Date:</strong> ${rfq.due_date ? new Date(rfq.due_date).toLocaleDateString() : ""}</p>
           <p><strong>Assigned To:</strong> ${rfq.assign_to_name || ""}</p>
           <p><strong>RFQ Channel:</strong> ${rfq.rfq_channel || ""}</p>
+          <p><strong>Status:</strong> ${rfq.current_status || "Processing"}</p>
         </div>
         ${rfq.items && rfq.items.length > 0
           ? `
@@ -154,6 +200,7 @@ const ViewRFQ = () => {
     { name: "due_date", label: "Due Date", type: "date" },
     { name: "rfq_no", label: "RFQ No" },
     { name: "assign_to_name", label: "Assigned To" },
+    { name: "current_status", label: "Status", type: "select" },
   ];
 
   const allSingleFields = [
@@ -169,6 +216,7 @@ const ViewRFQ = () => {
     { name: "due_date", label: "Due Date", type: "date" },
     { name: "assign_to_name", label: "Assigned To", type: "text" },
     { name: "rfq_channel", label: "RFQ Channel", type: "text" },
+    { name: "current_status", label: "Status", type: "text" },
   ];
 
   const repeatableFields = () => [
@@ -223,7 +271,16 @@ const ViewRFQ = () => {
                       ? rfq[field.name]
                         ? new Date(rfq[field.name]).toLocaleDateString()
                         : ""
-                      : rfq[field.name] || ""}
+                      : field.type === "select" ? (
+                          <select
+                            value={rfq.current_status || "Processing"}
+                            onChange={(e) => updateRfqStatus(rfq.id, e.target.value)}
+                            className="w-full text-sm p-1 border border-gray-300 rounded bg-transparent focus:outline-indigo-500"
+                          >
+                            <option value="Processing">Processing</option>
+                            <option value="Completed">Completed</option>
+                          </select>
+                        ) : rfq[field.name] || ""}
                   </td>
                 ))}
                 <td className="px-4 py-3 text-sm text-black flex space-x-2 whitespace-nowrap">
@@ -235,7 +292,12 @@ const ViewRFQ = () => {
                   </button>
                   <button
                     onClick={() => handleConvertToQuotation(rfq)}
-                    className="bg-green-500 text-white px-3 py-2 text-sm rounded hover:bg-green-600 transition-colors duration-200"
+                    className={`bg-green-500 text-white px-3 py-2 text-sm rounded hover:bg-green-600 transition-colors duration-200 ${
+                      rfq.hasQuotation || rfq.current_status !== "Completed"
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : ""
+                    }`}
+                    disabled={rfq.hasQuotation || rfq.current_status !== "Completed"}
                   >
                     Convert to Quotation
                   </button>
@@ -245,7 +307,10 @@ const ViewRFQ = () => {
                         state: { rfqData: rfq, isEditing: true },
                       })
                     }
-                    className="bg-blue-500 text-white px-3 py-2 text-sm rounded hover:bg-blue-600 transition-colors duration-200 flex items-center"
+                    className={`bg-blue-500 text-white px-3 py-2 text-sm rounded hover:bg-blue-600 transition-colors duration-200 flex items-center ${
+                      rfq.hasQuotation ? "bg-gray-300 text-gray-500 cursor-not-allowed" : ""
+                    }`}
+                    disabled={rfq.hasQuotation}
                   >
                     <Edit size={16} className="mr-1" /> Edit
                   </button>
@@ -329,7 +394,10 @@ const ViewRFQ = () => {
                     state: { rfqData: selectedRfq, isEditing: true },
                   })
                 }
-                className="bg-indigo-500 text-white px-3 py-2 rounded hover:bg-indigo-600 transition-colors duration-200"
+                className={`bg-indigo-500 text-white px-3 py-2 rounded hover:bg-indigo-600 transition-colors duration-200 ${
+                  selectedRfq.hasQuotation ? "bg-gray-300 text-gray-500 cursor-not-allowed" : ""
+                }`}
+                disabled={selectedRfq.hasQuotation}
               >
                 Edit
               </button>

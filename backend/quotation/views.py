@@ -66,7 +66,7 @@ class SendDueReminderView(APIView):
         except Exception as e:
             print(f"Failed to send due reminder emails: {str(e)}")
             return Response({"error": "Failed to send emails"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
 class QuotationViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     queryset = Quotation.objects.all()
@@ -74,7 +74,10 @@ class QuotationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = Quotation.objects.all()
+        rfq_id = self.request.query_params.get('rfq', None)
         search = self.request.query_params.get('search', None)
+        if rfq_id:
+            queryset = queryset.filter(rfq_id=rfq_id)
         if search:
             queryset = queryset.filter(quotation_no__icontains=search)
         return queryset
