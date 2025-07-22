@@ -27,7 +27,14 @@ const PartialOrderSelection = () => {
   const handleNumberOfPartialOrdersChange = (e) => {
     const value = e.target.value === "" ? "" : parseInt(e.target.value, 10);
     console.log("Number of Partial Orders Changed:", value);
+    if (value && (value < 1 || value > savedItems.length)) {
+      toast.error(`Number of partial orders must be between 1 and ${savedItems.length}.`);
+      return;
+    }
     setNumberOfPartialOrders(value);
+    setSelectedItemIds([]); // Reset selections when number changes
+    setCreatedPartialOrders([]); // Reset partial orders
+    setUsedItemIds([]); // Reset used items
   };
 
   // Handle checkbox selection for multiple items
@@ -37,9 +44,10 @@ const PartialOrderSelection = () => {
         console.log("Deselecting item:", itemId);
         return prev.filter((id) => id !== itemId);
       }
-      if (prev.length >= savedItems.length - usedItemIds.length - 1) {
-        toast.error("Cannot select all remaining items for a partial order.");
-        console.warn("Cannot select all remaining items:", prev);
+      const maxItemsPerOrder = Math.ceil((savedItems.length - usedItemIds.length) / (numberOfPartialOrders - createdPartialOrders));
+      if (prev.length >= maxItemsPerOrder) {
+        toast.error(`Cannot select more than ${maxItemsPerOrder} items for this partial order.`);
+        console.warn("Max items per order exceeded:", maxItemsPerOrder);
         return prev;
       }
       console.log("Selecting item:", itemId);
@@ -49,16 +57,27 @@ const PartialOrderSelection = () => {
 
   // Determine if Generate button is disabled
   const isGenerateDisabled = () => {
+    if (!numberOfPartialOrders) {
+      console.log("Generate disabled: Number of partial orders not specified");
+      return true;
+    }
+    if (createdPartialOrders.length >= numberOfPartialOrders) {
+      console.log("Generate disabled: Maximum number of partial orders reached");
+      return true;
+    }
     if (selectedItemIds.length === 0) {
       console.log("Generate disabled: No items selected");
       return true;
     }
-    if (selectedItemIds.length >= savedItems.length - usedItemIds.length) {
-      console.log("Generate disabled: Cannot select all remaining items");
+    const remainingItemsCount = savedItems.length - usedItemIds.length;
+    const remainingPartialOrders = numberOfPartialOrders - createdPartialOrders.length;
+    const maxItemsPerOrder = Math.ceil(remainingItemsCount / remainingPartialOrders);
+    if (remainingPartialOrders > 1 && selectedItemIds.length > maxItemsPerOrder) {
+      console.log("Generate disabled: Too many items selected for remaining partial orders");
       return true;
     }
-    if (savedItems.length === 4 && usedItemIds.length + selectedItemIds.length > 3) {
-      console.log("Generate disabled: Exceeds 3 items for 4-item case");
+    if (remainingPartialOrders === 1 && selectedItemIds.length !== remainingItemsCount) {
+      console.log("Generate disabled: Must select all remaining items for the last partial order");
       return true;
     }
     if (selectedItemIds.some((id) => usedItemIds.includes(id))) {
@@ -71,11 +90,8 @@ const PartialOrderSelection = () => {
   // Generate partial order with selected items
   const handleGeneratePartialOrder = async () => {
     console.log("Generating partial order with item IDs:", selectedItemIds);
-    if (savedItems.length === 4 && usedItemIds.length + selectedItemIds.length > 3) {
-      toast.error("Cannot select more than 3 items in total for 4 items.");
-      console.warn("Exceeds item limit for 4-item case");
-      return;
-    }
+    const remainingItemsCount = savedItems.length - usedItemIds.length;
+    const remainingPartialOrders = numberOfPartialOrders - createdPartialOrders.length;
 
     try {
       const selectedItems = savedItems.filter((item) => selectedItemIds.includes(item.id));
@@ -113,9 +129,9 @@ const PartialOrderSelection = () => {
       toast.success(`Partial purchase order ${createdPartialOrders.length + 1} created successfully!`);
       console.log("API Response:", response.data);
 
-      if (savedItems.length === 4 && usedItemIds.length + selectedItemIds.length === 3) {
+      if (createdPartialOrders.length + 1 === numberOfPartialOrders && usedItemIds.length === savedItems.length) {
         toast.success("All required partial orders created!");
-        navigate("/pre-job/view-quotation");
+        navigate("/pre-job/view-quotation", { state: { quotationId: quotationData.id, partialOrders: createdPartialOrders } });
       }
     } catch (err) {
       console.error("Failed to create partial purchase order:", err);
@@ -125,21 +141,30 @@ const PartialOrderSelection = () => {
 
   // Handle Finish button
   const handleFinish = () => {
-    if (savedItems.length === 4 && usedItemIds.length !== 3) {
-      toast.error("You must select exactly 3 items across partial orders.");
-      console.warn("Incomplete selection for 4 items:", usedItemIds);
+    if (!numberOfPartialOrders) {
+      toast.error("Please specify the number of partial orders.");
+      console.warn("Number of partial orders not specified");
       return;
     }
-    if (numberOfPartialOrders && createdPartialOrders.length < numberOfPartialOrders) {
-      toast.error(`Please create ${numberOfPartialOrders} partial orders.`);
-      console.warn("Not enough partial orders created:", createdPartialOrders.length, numberOfPartialOrders);
+    if (createdPartialOrders.length !== numberOfPartialOrders) {
+      toast.error(`Please create exactly ${numberOfPartialOrders} partial orders.`);
+      console.warn("Incorrect number of partial orders:", createdPartialOrders.length, numberOfPartialOrders);
       return;
     }
-    navigate("/pre-job/view-quotation");
+    if (usedItemIds.length !== savedItems.length) {
+      toast.error("All items must be selected across partial orders.");
+      console.warn("Not all items used:", usedItemIds, savedItems.length);
+      return;
+    }
+    navigate("/pre-job/view-quotation", { state: { quotationId: quotationData.id, partialOrders: createdPartialOrders } });
   };
 
   // Filter remaining items
   const remainingItems = savedItems.filter((item) => !usedItemIds.includes(item.id));
+
+  if (!quotationData || !quotationData.items || quotationData.items.length === 0) {
+    return <p className="text-red-600 text-center">No quotation data or items found.</p>;
+  }
 
   return (
     <div className="container mx-auto p-4 bg-transparent min-h-screen">
@@ -153,15 +178,15 @@ const PartialOrderSelection = () => {
             onChange={handleNumberOfPartialOrdersChange}
             className="w-full p-2 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
             min="1"
+            max={savedItems.length}
             placeholder="Enter number of partial orders"
+            required
           />
         </div>
 
-        {savedItems.length === 4 && (
-          <p className="text-sm text-gray-600 mb-4">
-            Note: You must select exactly 3 items across partial orders.
-          </p>
-        )}
+        <p className="text-sm text-gray-600 mb-4">
+          Note: You must create exactly {numberOfPartialOrders || "the specified number of"} partial orders, dividing all {savedItems.length} items evenly.
+        </p>
 
         {createdPartialOrders.length > 0 && (
           <div className="mb-6">
@@ -218,7 +243,7 @@ const PartialOrderSelection = () => {
               Select Items for Partial Order {createdPartialOrders.length + 1}
             </h3>
             <p className="text-sm text-gray-600 mb-2">
-              Selected items: {usedItemIds.length}/{savedItems.length === 4 ? 3 : savedItems.length - 1}
+              Selected items: {selectedItemIds.length} (Remaining: {remainingItems.length})
             </p>
             <div className="overflow-x-auto rounded-lg shadow-sm">
               <table className="min-w-full bg-white border border-gray-200">
