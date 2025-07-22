@@ -50,38 +50,57 @@ const EditRFQ = () => {
           apiClient.get("/teams/"),
         ]);
 
-        const fetchedItems = rfqResponse.data.items?.map((item, index) => ({
-          id: item.id || Date.now() + index,
-          item_name: item.item_name || "",
-          quantity: String(item.quantity) || "",
-          unit: item.unit || "",
-          unit_price: String(item.unit_price) || "0",
-        })) || [
-            {
-              id: Date.now(),
-              item_name: "",
-              quantity: "",
-              unit: "",
-              unit_price: "0",
-            },
-          ];
+        // Prioritize rfqData.items in quotation mode, fallback to API response
+        const initialItems = isQuotationMode && rfqData.items?.length
+          ? rfqData.items.map((item, index) => ({
+              id: item.id || Date.now() + index,
+              item_name: item.item_name || "",
+              quantity: String(item.quantity) || "",
+              unit: item.unit || "",
+              unit_price: String(item.unit_price) || "0",
+            }))
+          : rfqResponse.data.items?.length
+          ? rfqResponse.data.items.map((item, index) => ({
+              id: item.id || Date.now() + index,
+              item_name: item.item_name || "",
+              quantity: String(item.quantity) || "",
+              unit: item.unit || "",
+              unit_price: String(item.unit_price) || "0",
+            }))
+          : rfqData.items?.map((item, index) => ({
+              id: item.id || Date.now() + index,
+              item_name: item.item_name || "",
+              quantity: String(item.quantity) || "",
+              unit: item.unit || "",
+              unit_price: String(item.unit_price) || "0",
+            })) || [
+              {
+                id: Date.now(),
+                item_name: "",
+                quantity: "",
+                unit: "",
+                unit_price: "0",
+              },
+            ];
 
         setFormData({
-          company_name: rfqResponse.data.company_name || "",
-          reference: rfqResponse.data.reference || "",
-          company_address: rfqResponse.data.address || "",
-          company_phone: rfqResponse.data.phone || "",
-          company_email: rfqResponse.data.email || "",
-          rfq_channel: rfqResponse.data.rfq_channel || "",
-          attention_name: rfqResponse.data.attention_name || "",
-          attention_phone: rfqResponse.data.attention_phone || "",
-          attention_email: rfqResponse.data.attention_email || "",
-          due_date: rfqResponse.data.due_date || "",
+          company_name: rfqResponse.data.company_name || rfqData.company_name || "",
+          reference: rfqResponse.data.reference || rfqData.reference || "",
+          company_address: rfqResponse.data.address || rfqData.address || "",
+          company_phone: rfqResponse.data.phone || rfqData.phone || "",
+          company_email: rfqResponse.data.email || rfqData.email || "",
+          rfq_channel: rfqResponse.data.rfq_channel || rfqData.rfq_channel || "",
+          attention_name: rfqResponse.data.attention_name || rfqData.attention_name || "",
+          attention_phone: rfqResponse.data.attention_phone || rfqData.attention_phone || "",
+          attention_email: rfqResponse.data.attention_email || rfqData.attention_email || "",
+          due_date: rfqResponse.data.due_date || rfqData.due_date || "",
           assign_to: rfqResponse.data.assign_to
             ? String(rfqResponse.data.assign_to)
+            : rfqData.assign_to
+            ? String(rfqData.assign_to)
             : "",
-          rfq_no: rfqResponse.data.rfq_no || "",
-          items: fetchedItems,
+          rfq_no: rfqResponse.data.rfq_no || rfqData.rfq_no || "",
+          items: initialItems,
         });
 
         setRfqChannels(
@@ -109,6 +128,37 @@ const EditRFQ = () => {
       } catch (err) {
         console.error("Failed to fetch RFQ data:", err);
         setError("Failed to load RFQ data.");
+        if (rfqData) {
+          setFormData({
+            company_name: rfqData.company_name || "",
+            reference: rfqData.reference || "",
+            company_address: rfqData.address || "",
+            company_phone: rfqData.phone || "",
+            company_email: rfqData.email || "",
+            rfq_channel: rfqData.rfq_channel || "",
+            attention_name: rfqData.attention_name || "",
+            attention_phone: rfqData.attention_phone || "",
+            attention_email: rfqData.attention_email || "",
+            due_date: rfqData.due_date || "",
+            assign_to: rfqData.assign_to ? String(rfqData.assign_to) : "",
+            rfq_no: rfqData.rfq_no || "",
+            items: rfqData.items?.map((item, index) => ({
+              id: item.id || Date.now() + index,
+              item_name: item.item_name || "",
+              quantity: String(item.quantity) || "",
+              unit: item.unit || "",
+              unit_price: String(item.unit_price) || "0",
+            })) || [
+              {
+                id: Date.now(),
+                item_name: "",
+                quantity: "",
+                unit: "",
+                unit_price: "0",
+              },
+            ],
+          });
+        }
       } finally {
         setLoading(false);
       }
@@ -139,7 +189,7 @@ const EditRFQ = () => {
   };
 
   const handleSingleInputChange = (e) => {
-    if (isQuotationMode) return; // Prevent changes in quotation mode
+    if (isQuotationMode) return;
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -254,7 +304,7 @@ const EditRFQ = () => {
         const response = await apiClient.post("/quotations/", payload);
         toast.success("Quotation created successfully!");
         navigate("/pre-job/view-quotation", {
-          state: { quotationId: response.data.id, refresh: true },
+          state: { quotationId: response.data.id, refresh: true, rfqId: rfqData.id },
         });
       } catch (err) {
         console.error("Failed to create quotation:", err);
@@ -296,7 +346,7 @@ const EditRFQ = () => {
       try {
         await apiClient.put(`/add-rfqs/${rfqData.id}/`, payload);
         toast.success("RFQ updated successfully!");
-        navigate("/pre-job/view-rfq", { state: { refresh: true } });
+        navigate("/pre-job/view-rfq", { state: { refresh: true, rfqId: rfqData.id } });
       } catch (error) {
         console.error("Error updating RFQ:", error.response?.data || error.message);
         toast.error("Failed to update RFQ. Please check the required fields.");
@@ -451,8 +501,7 @@ const EditRFQ = () => {
             onChange={(e) =>
               entryId ? handleInputChange(e, entryId) : handleSingleInputChange(e)
             }
-            className={`w-full text-sm p-2 border border-gray-400 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500 ${isDisabled ? "bg-gray-100 text-black cursor-not-allowed" : ""
-              }`}
+            className={`w-full text-sm p-2 border border-gray-400 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500 ${isDisabled ? "bg-gray-100 text-black cursor-not-allowed" : ""}`}
             aria-required={field.required}
             disabled={isDisabled}
           >
@@ -487,11 +536,13 @@ const EditRFQ = () => {
           placeholder={field.placeholder}
           min={field.min}
           step={field.step}
-          className={`w-full text-sm p-2 border border-gray-400 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500 ${isDisabled ? "bg-gray-100 text-black cursor-not-allowed" : ""
-            }`}
+          className={`w-full text-sm p-2 border border-gray-400 rounded bg-transparent focus:outline-indigo-500 focus:ring focus:ring-indigo-500 ${isDisabled ? "bg-gray-100 text-black cursor-not-allowed" : ""}`}
           aria-required={field.required}
           disabled={isDisabled}
         />
+        {isQuotationMode && field.name === "unit_price" && (
+          <p className="text-xs text-gray-600 mt-1">Please enter the unit price</p>
+        )}
       </div>
     );
   };

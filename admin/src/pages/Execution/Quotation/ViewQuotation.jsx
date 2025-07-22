@@ -65,11 +65,7 @@ const ViewQuotation = () => {
       setQuotations(sortedQuotations);
       if (location.state?.quotationId) {
         const newQuotation = sortedQuotations.find((q) => q.id === location.state.quotationId);
-        if (newQuotation) {
-          setSelectedQuotation(newQuotation);
-        } else {
-          setSelectedQuotation(null);
-        }
+        if (newQuotation) setSelectedQuotation(newQuotation);
       }
     } catch (err) {
       console.error("Failed to fetch quotations:", err);
@@ -110,9 +106,7 @@ const ViewQuotation = () => {
     try {
       setLoading(true);
       const quotationToUpdate = quotations.find((q) => q.id === quotationId) || selectedQuotation;
-      if (!quotationToUpdate) {
-        throw new Error("Quotation not found in state.");
-      }
+      if (!quotationToUpdate) throw new Error("Quotation not found in state.");
 
       const payload = {
         current_status: newStatus,
@@ -261,16 +255,20 @@ const ViewQuotation = () => {
 
   const selectOrderType = (orderType) => {
     setShowOrderTypeModal(false);
-    setPurchaseOrderData({
-      ...convertPurchaseOrder,
-      client_po_number: "",
-      po_file: null,
-      items: convertPurchaseOrder.items.map((item) => ({
-        ...item,
-        quantity: item.quantity, // Keep original quantities
-      })),
-      order_type: orderType,
-    });
+    if (orderType === "full") {
+      setPurchaseOrderData({
+        ...convertPurchaseOrder,
+        client_po_number: "",
+        po_file: null,
+        items: convertPurchaseOrder.items.map((item) => ({
+          ...item,
+          quantity: item.quantity,
+        })),
+        order_type: orderType,
+      });
+    } else if (orderType === "partial") {
+      navigate("/pre-job/partial-order-selection", { state: { quotationData: convertPurchaseOrder } });
+    }
   };
 
   const handlePoFileChange = (e) => {
@@ -812,11 +810,11 @@ const ViewQuotation = () => {
         </div>
       )}
 
-      {convertPurchaseOrder && purchaseOrderData && (
+      {convertPurchaseOrder && purchaseOrderData && purchaseOrderData.order_type === "full" && (
         <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50 transition-opacity duration-300">
           <div className="bg-white rounded-lg shadow-sm p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-3 text-black border-b pb-2">
-              Convert Quotation #{convertPurchaseOrder.quotation_no} to {purchaseOrderData.order_type === "partial" ? "Partial" : "Full"} Purchase Order
+              Convert Quotation #{convertPurchaseOrder.quotation_no} to Full Purchase Order
             </h3>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700">Client PO Number</label>

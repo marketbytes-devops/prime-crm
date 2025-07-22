@@ -224,7 +224,7 @@ const Sidebar = ({ toggleSidebar }) => {
                               <NavLink
                                 to={subItem.to}
                                 className={({ isActive }) =>
-                                  `flex items forces-item-align-center px-3 py-3 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                                  `flex items-center px-3 py-3 rounded-lg text-sm font-medium transition-colors duration-200 ${
                                     isActive ? "bg-indigo-500 text-white" : "text-gray-600 hover:bg-indigo-100 hover:text-indigo-600"
                                   }`
                                 }

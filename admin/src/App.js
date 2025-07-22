@@ -26,6 +26,7 @@ import ProcessingWorkOrders from "./pages/JobExecution/ProcessingWorkOrders";
 import CloseWorkOrder from "./pages/JobExecution/CloseWorkOrder";
 import Delivery from "./pages/JobExecution/Delivery";
 import ManagerApproval from "./pages/JobExecution/ManagerApproval";
+import PartialOrderSelection from "./pages/Execution/Quotation/PartialOrderSelection";
 
 const ProtectedRoute = ({ children, isAuthenticated }) => {
   console.log("ProtectedRoute - isAuthenticated:", isAuthenticated);
@@ -64,7 +65,6 @@ function App() {
           index: true,
           element: <Dashboard />,
         },
-
         {
           path: "/pre-job/add-rfq",
           element: <AddRFQ />,
@@ -82,6 +82,10 @@ function App() {
           element: <ViewQuotation />,
         },
         {
+          path: "/pre-job/partial-order-selection",
+          element: <PartialOrderSelection />,
+        },
+        {
           path: "/pre-job/edit-quotation",
           element: <EditQuotation />,
         },
@@ -91,28 +95,23 @@ function App() {
         },
         {
           path: "/job-execution/initiate-work-order",
-          element:
-            <InitiateWorkOrder/>,
+          element: <InitiateWorkOrder />,
         },
         {
           path: "/job-execution/processing-work-orders",
-          element:
-            <ProcessingWorkOrders/>,
+          element: <ProcessingWorkOrders />,
         },
         {
           path: "/job-execution/manager-approval",
-          element:
-            <ManagerApproval/>,
+          element: <ManagerApproval />,
         },
         {
           path: "/job-execution/delivery",
-          element:
-            <Delivery/>,
+          element: <Delivery />,
         },
         {
           path: "/job-execution/close-work-order",
-          element:
-            <CloseWorkOrder />,
+          element: <CloseWorkOrder />,
         },
         {
           path: "/settings/rfq-channel",
