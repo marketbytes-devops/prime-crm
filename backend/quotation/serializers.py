@@ -4,11 +4,11 @@ from rest_framework import serializers
 from .models import Quotation, QuotationItem, PurchaseOrder, PurchaseOrderItem
 from rfq.models import RFQ
 
-class QuotationItemSerializer(serializers.ModelSerializer):
+class PurchaseOrderItemSerializer(serializers.ModelSerializer):
     total_price = serializers.SerializerMethodField()
 
     class Meta:
-        model = QuotationItem
+        model = PurchaseOrderItem
         fields = ['id', 'item_name', 'product_name', 'quantity', 'unit', 'unit_price', 'total_price']
 
     def get_total_price(self, obj):
@@ -16,17 +16,13 @@ class QuotationItemSerializer(serializers.ModelSerializer):
             return obj.quantity * obj.unit_price
         return 0
 
-class PurchaseOrderItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PurchaseOrderItem
-        fields = ['id', 'item_name', 'product_name', 'quantity', 'unit', 'unit_price']
-
 class PurchaseOrderSerializer(serializers.ModelSerializer):
     items = PurchaseOrderItemSerializer(many=True, required=False)
+    total_price = serializers.SerializerMethodField()
 
     class Meta:
         model = PurchaseOrder
-        fields = ['id', 'quotation', 'client_po_number', 'order_type', 'po_file', 'created_at', 'items']
+        fields = ['id', 'quotation', 'client_po_number', 'order_type', 'po_file', 'created_at', 'items', 'total_price']
 
     def validate(self, data):
         items = data.get('items', [])
@@ -40,9 +36,23 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
         purchase_order = PurchaseOrder.objects.create(**validated_data)
         for item_data in items_data:
             PurchaseOrderItem.objects.create(purchase_order=purchase_order, **item_data)
-        # Refresh the associated Quotation to include the new PurchaseOrder
         purchase_order.quotation.refresh_from_db()
         return purchase_order
+
+    def get_total_price(self, obj):
+        return sum((item.quantity or 0) * (item.unit_price or 0) for item in obj.items.all())
+
+class QuotationItemSerializer(serializers.ModelSerializer):
+    total_price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QuotationItem
+        fields = ['id', 'item_name', 'product_name', 'quantity', 'unit', 'unit_price', 'total_price']
+
+    def get_total_price(self, obj):
+        if obj.quantity and obj.unit_price is not None:
+            return obj.quantity * obj.unit_price
+        return 0
 
 class QuotationSerializer(serializers.ModelSerializer):
     items = QuotationItemSerializer(many=True)
@@ -61,10 +71,8 @@ class QuotationSerializer(serializers.ModelSerializer):
     def validate(self, data):
         items = data.get('items', [])
         rfq = data.get('rfq')
-        # Validate RFQ status
         if self.instance is None and rfq and rfq.current_status != "Completed":
             raise serializers.ValidationError("Cannot create quotation: RFQ must be in 'Completed' status.")
-        # Prevent duplicate quotations for the same RFQ (optional)
         if self.instance is None and rfq and Quotation.objects.filter(rfq=rfq).exists():
             raise serializers.ValidationError("A quotation already exists for this RFQ.")
         for item in items:
@@ -82,8 +90,19 @@ class QuotationSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             items_data = validated_data.pop('items', [])
             rfq = validated_data.get('rfq')
+            if not items_data and rfq:
+                items_data = [
+                    {
+                        'item_name': item.item_name,
+                        'product_name': item.product_name,
+                        'quantity': item.quantity,
+                        'unit': item.unit,
+                        'unit_price': item.unit_price or 0.00,
+                        'total_price': (item.quantity or 0) * (item.unit_price or 0.00)
+                    }
+                    for item in rfq.items.all()
+                ]
 
-            # Generate unique quotation_no
             prefix = "QT-"
             latest_quotation = Quotation.objects.select_for_update().aggregate(Max('quotation_no'))['quotation_no__max']
             if latest_quotation:
@@ -98,10 +117,8 @@ class QuotationSerializer(serializers.ModelSerializer):
             quotation_no = f"{prefix}{new_number:07d}"
             validated_data['quotation_no'] = quotation_no
 
-            # Create the quotation
             quotation = Quotation.objects.create(**validated_data)
 
-            # Create associated items
             for item_data in items_data:
                 QuotationItem.objects.create(quotation=quotation, **item_data)
 
@@ -123,7 +140,6 @@ class QuotationSerializer(serializers.ModelSerializer):
         instance.next_followup_date = validated_data.get('next_followup_date', instance.next_followup_date)
         instance.save()
 
-        # Update items
         instance.items.all().delete()
         for item_data in items_data:
             QuotationItem.objects.create(quotation=instance, **item_data)

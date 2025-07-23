@@ -13,7 +13,6 @@ const PartialOrderSelection = () => {
   const [createdPartialOrders, setCreatedPartialOrders] = useState([]);
   const [usedItemIds, setUsedItemIds] = useState([]);
 
-  // Initialize savedItems from quotationData
   useEffect(() => {
     if (quotationData?.items) {
       console.log("Quotation Data Items:", quotationData.items);

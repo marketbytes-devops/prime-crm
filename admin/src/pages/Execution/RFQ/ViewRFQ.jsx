@@ -124,7 +124,21 @@ const ViewRFQ = () => {
       return;
     }
     navigate("/pre-job/edit-rfq", {
-      state: { rfqData: rfq, isEditing: true, isQuotationMode: true },
+      state: { 
+        rfqData: { 
+          ...rfq, 
+          items: rfq.items.map(item => ({
+            id: item.id,
+            item_name: item.item_name || "",
+            product_name: item.product_name || "",
+            quantity: item.quantity || 1,
+            unit: item.unit || "",
+            unit_price: item.unit_price || 0.00
+          }))
+        }, 
+        isEditing: true, 
+        isQuotationMode: true 
+      },
     });
   };
 
@@ -179,7 +193,7 @@ const ViewRFQ = () => {
                 .map(
                   (item) => `
                 <tr>
-                  <td>${item.item_name || ""}</td>
+                  <td>${item.item_name || item.product_name || ""}</td>
                   <td>${item.quantity || ""}</td>
                   <td>${item.unit || ""}</td>
                 </tr>
@@ -246,6 +260,7 @@ const ViewRFQ = () => {
 
   const repeatableFields = () => [
     { name: "item_name", label: "Item" },
+    { name: "product_name", label: "Product" },
     { name: "quantity", label: "Quantity" },
     { name: "unit", label: "Unit" },
   ];
