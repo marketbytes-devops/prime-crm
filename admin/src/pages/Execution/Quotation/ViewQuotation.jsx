@@ -17,6 +17,7 @@ const ViewQuotation = () => {
   const [purchaseOrderData, setPurchaseOrderData] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [partialOrders, setPartialOrders] = useState([]);
+  const [uploadedPOFiles, setUploadedPOFiles] = useState({}); // Track uploaded files per quotation
   const itemsPerPage = 20;
 
   const fetchQuotations = async () => {
@@ -64,13 +65,16 @@ const ViewQuotation = () => {
         new Date(b.created_at) - new Date(a.created_at)
       );
       setQuotations(sortedQuotations);
-      if (location.state?.quotationId) {
+      if (location.state?.quotationId && !location.state?.refresh) {
         const newQuotation = sortedQuotations.find((q) => q.id === location.state.quotationId);
         if (newQuotation) {
           setSelectedQuotation(newQuotation);
-          // Fetch existing partial orders if any
           const existingPOs = newQuotation.purchase_order?.filter(po => po.order_type === "partial") || [];
-          setPartialOrders(existingPOs);
+          const statePartialOrders = location.state?.partialOrders || [];
+          setPartialOrders(statePartialOrders.length > 0 ? statePartialOrders : existingPOs);
+          if (location.state?.uploadedPOFiles && location.state?.quotationId in location.state.uploadedPOFiles) {
+            setUploadedPOFiles(prev => ({ ...prev, [location.state.quotationId]: location.state.uploadedPOFiles[location.state.quotationId] }));
+          }
         }
       }
     } catch (err) {
@@ -273,15 +277,30 @@ const ViewQuotation = () => {
         order_type: orderType,
       });
     } else if (orderType === "partial") {
+      const totalItems = convertPurchaseOrder.items.length;
+      const existingPartialOrders = convertPurchaseOrder.purchase_order?.filter(po => po.order_type === "partial").length || 0;
+      const maxSelectableItems = totalItems - existingPartialOrders - 1;
+
+      if (maxSelectableItems <= 0) {
+        toast.error("No more items can be selected for a partial order.");
+        return;
+      }
+
       setPartialOrders([]); // Reset partial orders for new selection
-      navigate("/pre-job/partial-order-selection", { state: { quotationData: convertPurchaseOrder } });
+      navigate("/pre-job/partial-order-selection", {
+        state: {
+          quotationData: convertPurchaseOrder,
+          maxSelectableItems: maxSelectableItems,
+        },
+      });
     }
   };
 
   const handlePoFileChange = (e) => {
+    const file = e.target.files[0];
     setPurchaseOrderData((prev) => ({
       ...prev,
-      po_file: e.target.files[0] || null,
+      po_file: file || null,
     }));
   };
 
@@ -327,6 +346,14 @@ const ViewQuotation = () => {
           current_status: "PO Created",
         }));
       }
+      // Store uploaded file info
+      setUploadedPOFiles(prev => ({
+        ...prev,
+        [convertPurchaseOrder.id]: {
+          client_po_number: purchaseOrderData.client_po_number,
+          fileName: purchaseOrderData.po_file ? purchaseOrderData.po_file.name : null,
+        },
+      }));
       setConvertPurchaseOrder(null);
       setPurchaseOrderData(null);
       fetchQuotations();
@@ -436,6 +463,11 @@ const ViewQuotation = () => {
       setQuotations((prev) => prev.filter((q) => q.id !== quotationId));
       setSelectedQuotation(null);
       setConvertPurchaseOrder(null);
+      setUploadedPOFiles(prev => {
+        const newFiles = { ...prev };
+        delete newFiles[quotationId];
+        return newFiles;
+      });
     } catch (err) {
       console.error("Failed to delete quotation:", err);
       toast.error("Failed to delete quotation: " + (err.response?.data?.detail || "Unknown error"));
@@ -631,12 +663,15 @@ const ViewQuotation = () => {
                         setConvertPurchaseOrder(quotation);
                         setPurchaseOrderData({
                           ...quotation,
-                          client_po_number: "",
+                          client_po_number: uploadedPOFiles[quotation.id]?.client_po_number || "",
                           po_file: null,
                           order_type: "partial",
                         });
                       }}
-                      className="px-3 py-2 text-sm rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-200 flex items-center"
+                      className={`px-3 py-2 text-sm rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-200 flex items-center ${
+                        uploadedPOFiles[quotation.id] ? "bg-gray-300 text-gray-500 cursor-not-allowed" : ""
+                      }`}
+                      disabled={!!uploadedPOFiles[quotation.id]}
                     >
                       <Upload size={16} className="mr-1" /> Upload PO
                     </button>
@@ -773,12 +808,15 @@ const ViewQuotation = () => {
             )}
             <div className="mt-4 flex justify-end space-x-2">
               <button
-                onClick={() =>
-                  navigate(`/pre-job/edit-quotation`, {
-                    state: { quotationData: selectedQuotation, isEditing: true },
-                  })
-                }
-                className="bg-indigo-500 text-white px-3 py-2 rounded hover:bg-indigo-600 transition-colors duration-200"
+                onClick={() => navigate(`/pre-job/edit-quotation`, {
+                  state: { quotationData: selectedQuotation, isEditing: true, partialOrders, uploadedPOFiles: uploadedPOFiles[selectedQuotation.id] ? { [selectedQuotation.id]: uploadedPOFiles[selectedQuotation.id] } : {} },
+                })}
+                className={`px-3 py-2 rounded transition-colors duration-200 ${
+                  partialOrders.length > 0 || (selectedQuotation.purchase_order && selectedQuotation.purchase_order.some(po => po.order_type === "full"))
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-indigo-500 text-white hover:bg-indigo-600"
+                }`}
+                disabled={partialOrders.length > 0 || (selectedQuotation.purchase_order && selectedQuotation.purchase_order.some(po => po.order_type === "full"))}
               >
                 Edit
               </button>
@@ -910,10 +948,17 @@ const ViewQuotation = () => {
                 className="w-full p-2 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
+            {uploadedPOFiles[convertPurchaseOrder.id] && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-700">Uploaded PO: {uploadedPOFiles[convertPurchaseOrder.id].fileName}</p>
+                <p className="text-sm text-gray-700">Client PO Number: {uploadedPOFiles[convertPurchaseOrder.id].client_po_number}</p>
+              </div>
+            )}
             <div className="flex justify-end space-x-2">
               <button
                 onClick={handleSavePurchaseOrder}
                 className="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 transition-colors duration-200 flex items-center"
+                disabled={!purchaseOrderData.po_file && !purchaseOrderData.client_po_number}
               >
                 <Upload size={16} className="mr-1" /> Save Purchase Order
               </button>

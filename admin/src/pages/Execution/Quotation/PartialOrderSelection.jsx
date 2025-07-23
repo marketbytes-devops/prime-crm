@@ -44,7 +44,10 @@ const PartialOrderSelection = () => {
         console.log("Deselecting item:", itemId);
         return prev.filter((id) => id !== itemId);
       }
-      const maxItemsPerOrder = Math.ceil((savedItems.length - usedItemIds.length) / (numberOfPartialOrders - createdPartialOrders));
+      const remainingItemsCount = savedItems.length - usedItemIds.length;
+      const remainingPartialOrders = numberOfPartialOrders - createdPartialOrders.length;
+      const maxItemsPerOrder = remainingPartialOrders > 1 ? savedItems.length - (numberOfPartialOrders - 1) : remainingItemsCount;
+      
       if (prev.length >= maxItemsPerOrder) {
         toast.error(`Cannot select more than ${maxItemsPerOrder} items for this partial order.`);
         console.warn("Max items per order exceeded:", maxItemsPerOrder);
@@ -71,7 +74,8 @@ const PartialOrderSelection = () => {
     }
     const remainingItemsCount = savedItems.length - usedItemIds.length;
     const remainingPartialOrders = numberOfPartialOrders - createdPartialOrders.length;
-    const maxItemsPerOrder = Math.ceil(remainingItemsCount / remainingPartialOrders);
+    const maxItemsPerOrder = remainingPartialOrders > 1 ? savedItems.length - (numberOfPartialOrders - 1) : remainingItemsCount;
+    
     if (remainingPartialOrders > 1 && selectedItemIds.length > maxItemsPerOrder) {
       console.log("Generate disabled: Too many items selected for remaining partial orders");
       return true;
@@ -129,9 +133,9 @@ const PartialOrderSelection = () => {
       toast.success(`Partial purchase order ${createdPartialOrders.length + 1} created successfully!`);
       console.log("API Response:", response.data);
 
-      if (createdPartialOrders.length + 1 === numberOfPartialOrders && usedItemIds.length === savedItems.length) {
+      if (createdPartialOrders.length + 1 === numberOfPartialOrders) {
         toast.success("All required partial orders created!");
-        navigate("/pre-job/view-quotation", { state: { quotationId: quotationData.id, partialOrders: createdPartialOrders } });
+        navigate("/pre-job/view-quotation", { state: { quotationId: quotationData.id, partialOrders: [...createdPartialOrders, { ...response.data, items: selectedItems }] } });
       }
     } catch (err) {
       console.error("Failed to create partial purchase order:", err);
@@ -185,7 +189,7 @@ const PartialOrderSelection = () => {
         </div>
 
         <p className="text-sm text-gray-600 mb-4">
-          Note: You must create exactly {numberOfPartialOrders || "the specified number of"} partial orders, dividing all {savedItems.length} items evenly.
+          Note: You must create exactly {numberOfPartialOrders || "the specified number of"} partial orders. For {numberOfPartialOrders > 1 ? "the first " + (numberOfPartialOrders - 1) : "all"} partial order(s), you can select up to {savedItems.length - (numberOfPartialOrders - 1)} items. The last partial order must include all remaining items.
         </p>
 
         {createdPartialOrders.length > 0 && (

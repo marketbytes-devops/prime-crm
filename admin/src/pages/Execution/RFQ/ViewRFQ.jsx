@@ -25,9 +25,20 @@ const ViewRFQ = () => {
       const updatedRfqs = await Promise.all(
         data.map(async (rfq, index) => {
           let hasQuotation = false;
+          let quotationItems = [];
           try {
             const quotationResponse = await apiClient.get(`/quotations/?rfq=${rfq.id}`);
-            hasQuotation = quotationResponse.data && (Array.isArray(quotationResponse.data) ? quotationResponse.data.length > 0 : quotationResponse.data.results?.length > 0);
+            const quotations = Array.isArray(quotationResponse.data)
+              ? quotationResponse.data
+              : quotationResponse.data.results || [];
+            hasQuotation = quotations.length > 0;
+            if (hasQuotation && quotations[0]?.items?.length > 0) {
+              quotationItems = quotations[0].items.map((item) => ({
+                item_name: item.item_name || "",
+                quantity: item.quantity || "",
+                unit: item.unit || "",
+              }));
+            }
           } catch (err) {
             console.warn(`No quotation check for RFQ ${rfq.id}:`, err);
           }
@@ -35,6 +46,7 @@ const ViewRFQ = () => {
             ...rfq,
             si_no: index + 1,
             hasQuotation,
+            items: rfq.items?.length > 0 ? rfq.items : quotationItems,
           };
         })
       );
@@ -59,13 +71,23 @@ const ViewRFQ = () => {
     try {
       const quotationResponse = await apiClient.get(`/quotations/?rfq=${rfqId}`);
       const hasQuotation = quotationResponse.data && (Array.isArray(quotationResponse.data) ? quotationResponse.data.length > 0 : quotationResponse.data.results?.length > 0);
+      const quotations = Array.isArray(quotationResponse.data)
+        ? quotationResponse.data
+        : quotationResponse.data.results || [];
+      const quotationItems = quotations[0]?.items?.length > 0
+        ? quotations[0].items.map((item) => ({
+            item_name: item.item_name || "",
+            quantity: item.quantity || "",
+            unit: item.unit || "",
+          }))
+        : [];
       setRfqs((prev) =>
         prev.map((rfq) =>
-          rfq.id === rfqId ? { ...rfq, hasQuotation } : rfq
+          rfq.id === rfqId ? { ...rfq, hasQuotation, items: rfq.items?.length > 0 ? rfq.items : quotationItems } : rfq
         )
       );
       const updatedRfq = rfqs.find((r) => r.id === rfqId);
-      if (updatedRfq) setSelectedRfq(updatedRfq);
+      if (updatedRfq) setSelectedRfq({ ...updatedRfq, items: updatedRfq.items?.length > 0 ? updatedRfq.items : quotationItems });
     } catch (err) {
       console.error(`Failed to update quotation status for RFQ ${rfqId}:`, err);
     }
