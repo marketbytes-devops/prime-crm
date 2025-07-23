@@ -1,4 +1,3 @@
-# quotation/serializers.py
 from django.db import transaction
 from django.db.models import Max
 from rest_framework import serializers
@@ -41,6 +40,8 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
         purchase_order = PurchaseOrder.objects.create(**validated_data)
         for item_data in items_data:
             PurchaseOrderItem.objects.create(purchase_order=purchase_order, **item_data)
+        # Refresh the associated Quotation to include the new PurchaseOrder
+        purchase_order.quotation.refresh_from_db()
         return purchase_order
 
 class QuotationSerializer(serializers.ModelSerializer):
