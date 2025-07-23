@@ -278,13 +278,13 @@ const CRMManager = ({
               Next <ArrowRight size="16" className="ml-1" />
             </button>
           ) : (
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="bg-indigo-500 text-white px-3 py-2 text-sm rounded hover:bg-indigo-600 transition-colors duration-200"
-            >
-              {isSubmitting ? "Saving..." : "Save"}
-            </button>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={`bg-indigo-500 text-white px-3 py-2 text-sm rounded ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-600'}`}
+          >
+            {isSubmitting ? 'Submitting...' : 'Submit'}
+          </button>
           )}
         </div>
       </form>

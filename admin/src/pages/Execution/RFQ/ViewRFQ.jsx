@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import apiClient from "../../../helpers/apiClient";
 import { toast } from "react-toastify";
-import { FileText, Printer, Edit, Trash } from "lucide-react";
+import { Printer, Edit, Trash } from "lucide-react";
 import ViewCard from "../../../components/ViewCard";
 
 const ViewRFQ = () => {
@@ -96,15 +96,16 @@ const ViewRFQ = () => {
   };
 
   const updateRfqStatus = async (rfqId, newStatus) => {
+    const previousRfqs = [...rfqs];
+    setRfqs((prev) =>
+      prev.map((rfq) => (rfq.id === rfqId ? { ...rfq, current_status: newStatus } : rfq))
+    );
     try {
-      const response = await apiClient.patch(`/add-rfqs/${rfqId}/`, { current_status: newStatus });
-      setRfqs((prev) =>
-        prev.map((rfq) => (rfq.id === rfqId ? { ...rfq, current_status: newStatus } : rfq))
-      );
+      await apiClient.patch(`/add-rfqs/${rfqId}/`, { current_status: newStatus });
       toast.success("RFQ status updated successfully");
     } catch (err) {
-      console.error("Failed to update RFQ status:", err);
-      toast.error("Failed to update RFQ status: " + (err.response?.data?.detail || "Unknown error"));
+      setRfqs(previousRfqs);
+      toast.error("Failed to update RFQ status.");
     }
   };
 
