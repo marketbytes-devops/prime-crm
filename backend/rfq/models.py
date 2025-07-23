@@ -10,7 +10,6 @@ class RFQChannel(models.Model):
 
 class Client(models.Model):
     company_name = models.CharField(max_length=255, null=True, blank=True)
-    reference = models.CharField(max_length=255, blank=True, null=True)
     address = models.TextField(null=True, blank=True)
     phone = models.CharField(max_length=20, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
@@ -25,7 +24,6 @@ class Client(models.Model):
 
 class RFQ(models.Model):
     company_name = models.CharField(max_length=255, null=True, blank=True)
-    reference = models.CharField(max_length=255, blank=True, null=True)
     address = models.TextField(null=True, blank=True)
     phone = models.CharField(max_length=20, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)

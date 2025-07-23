@@ -15,7 +15,6 @@ const ExistingClient = () => {
   const [selectedClient, setSelectedClient] = useState(rfqId ? rfqData : null);
   const [formData, setFormData] = useState({
     company_name: rfqData.company_name || "",
-    reference: rfqData.reference || "",
     address: rfqData.address || "",
     phone: rfqData.phone || "",
     email: rfqData.email || "",
@@ -76,7 +75,6 @@ const ExistingClient = () => {
     if (selectedClient) {
       setFormData({
         company_name: selectedClient.company_name || "",
-        reference: selectedClient.reference || "",
         address: selectedClient.address || "",
         phone: selectedClient.phone || "",
         email: selectedClient.email || "",
@@ -115,7 +113,6 @@ const ExistingClient = () => {
     setSelectedClient(null);
     setFormData({
       company_name: "",
-      reference: "",
       address: "",
       phone: "",
       email: "",

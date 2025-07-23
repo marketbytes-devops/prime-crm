@@ -47,6 +47,8 @@ const ViewRFQ = () => {
             si_no: index + 1,
             hasQuotation,
             items: rfq.items?.length > 0 ? rfq.items : quotationItems,
+            assign_to_name: rfq.assign_to_name || '',
+            assign_to_designation: rfq.assign_to_designation || '',
           };
         })
       );
@@ -221,7 +223,7 @@ const ViewRFQ = () => {
     { name: "created_at", label: "Created At", type: "date" },
     { name: "due_date", label: "Due Date", type: "date" },
     { name: "rfq_no", label: "RFQ No" },
-    { name: "assign_to_name", label: "Assigned To" },
+    { name: "assign_to_name", label: "Assigned Sales Person" }, 
     { name: "current_status", label: "Status", type: "select" },
   ];
 
@@ -236,7 +238,8 @@ const ViewRFQ = () => {
     { name: "attention_email", label: "Attention Email", type: "email" },
     { name: "created_at", label: "Created At", type: "date" },
     { name: "due_date", label: "Due Date", type: "date" },
-    { name: "assign_to_name", label: "Assigned To", type: "text" },
+    { name: "assign_to_name", label: "Assigned Sales Person", type: "text" }, 
+    { name: "assign_to_designation", label: "Designation", type: "text" },
     { name: "rfq_channel", label: "RFQ Channel", type: "text" },
     { name: "current_status", label: "Status", type: "text" },
   ];

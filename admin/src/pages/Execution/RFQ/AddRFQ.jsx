@@ -12,6 +12,7 @@ const AddRFQ = () => {
   const { rfqData = {}, isEditing = false } = location.state || {};
   const [showClientModal, setShowClientModal] = useState(!rfqData.company_name && !isEditing);
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false); 
   const [formData, setFormData] = useState({
     company_name: rfqData.company_name || "",
     company_address: rfqData.address || "",
@@ -223,9 +224,11 @@ const AddRFQ = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true); 
     const validationError = validateForm();
     if (validationError) {
       toast.error(validationError);
+      setIsSubmitting(false); 
       return;
     }
 
@@ -240,7 +243,7 @@ const AddRFQ = () => {
       attention_email: formData.attention_email || null,
       due_date: formData.due_date,
       assign_to: formData.assign_to ? parseInt(formData.assign_to) : null,
-      series: formData.series, 
+      series: formData.series,
       items: formData.items
         .filter((item) => item.item_name || item.quantity || item.unit)
         .map((item) => ({
@@ -262,6 +265,8 @@ const AddRFQ = () => {
     } catch (error) {
       console.error("Error submitting RFQ:", error.response?.data || error.message);
       toast.error("Failed to save RFQ. Please check the required fields.");
+    } finally {
+      setIsSubmitting(false); 
     }
   };
 
@@ -314,7 +319,7 @@ const AddRFQ = () => {
               <div className="p-4 bg-white rounded-lg shadow-sm">
                 <h3 className="text-md font-semibold text-black mb-6">Point of Contact</h3>
                 <div>
-                  <div className="grid grid-cols-1 md:grid-cols-2  gap-x-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
                     {companyFields.slice(5, 7).map((field) => renderField(field))}
                   </div>
                   <div className="grid grid-cols-1">
@@ -361,6 +366,7 @@ const AddRFQ = () => {
             onAddItem={handleAddItem}
             onRemoveItem={handleRemoveItem}
             onSubmit={handleSubmit}
+            isSubmitting={isSubmitting} 
           />
         </>
       )}

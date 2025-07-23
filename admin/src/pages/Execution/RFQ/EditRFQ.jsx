@@ -85,7 +85,6 @@ const EditRFQ = () => {
 
         setFormData({
           company_name: rfqResponse.data.company_name || rfqData.company_name || "",
-          reference: rfqResponse.data.reference || rfqData.reference || "",
           company_address: rfqResponse.data.address || rfqData.address || "",
           company_phone: rfqResponse.data.phone || rfqData.phone || "",
           company_email: rfqResponse.data.email || rfqData.email || "",
@@ -131,7 +130,6 @@ const EditRFQ = () => {
         if (rfqData) {
           setFormData({
             company_name: rfqData.company_name || "",
-            reference: rfqData.reference || "",
             company_address: rfqData.address || "",
             company_phone: rfqData.phone || "",
             company_email: rfqData.email || "",
@@ -324,7 +322,6 @@ const EditRFQ = () => {
     } else {
       const payload = {
         company_name: formData.company_name,
-        reference: formData.reference || null,
         address: formData.company_address,
         phone: formData.company_phone,
         email: formData.company_email,
@@ -361,13 +358,6 @@ const EditRFQ = () => {
       type: "text",
       required: true,
       placeholder: "Enter Company Name",
-    },
-    {
-      name: "reference",
-      label: "Reference",
-      type: "text",
-      required: false,
-      placeholder: "Enter Reference",
     },
     {
       name: "company_address",

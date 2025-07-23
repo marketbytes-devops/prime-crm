@@ -18,7 +18,7 @@ class ClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = [
-            'id', 'company_name', 'reference', 'address', 'phone', 'email',
+            'id', 'company_name', 'address', 'phone', 'email',
             'rfq_channel', 'attention_name', 'attention_phone', 'attention_email',
             'created_at'
         ]
@@ -43,7 +43,7 @@ class RFQSerializer(serializers.ModelSerializer):
     class Meta:
         model = RFQ
         fields = [
-            'id', 'created_at', 'company_name', 'reference', 'address', 'phone', 'email',
+            'id', 'created_at', 'company_name', 'address', 'phone', 'email',
             'rfq_channel', 'attention_name', 'attention_phone', 'attention_email',
             'due_date', 'assign_to', 'assign_to_name', 'assign_to_designation', 'assign_to_email',
             'items', 'current_status', 'rfq_no', 'series'
@@ -282,7 +282,6 @@ class RFQSerializer(serializers.ModelSerializer):
             instance.rfq_no = series.get_next_sequence()
 
         instance.company_name = validated_data.get('company_name', instance.company_name)
-        instance.reference = validated_data.get('reference', instance.reference)
         instance.address = validated_data.get('address', instance.address)
         instance.phone = validated_data.get('phone', instance.phone)
         instance.email = validated_data.get('email', instance.email)

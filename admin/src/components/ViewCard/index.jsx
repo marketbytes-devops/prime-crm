@@ -1,4 +1,5 @@
 const ViewCard = ({ singleFields, repeatableFields, title, showRepeatableFields, initialData }) => {
+
   const renderFieldValue = (field, data) => {
     if (field.name.includes('.')) {
       const [parent, child] = field.name.split('.');

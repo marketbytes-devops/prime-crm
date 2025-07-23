@@ -21,9 +21,11 @@ const CRMManager = ({
   onRemoveItem,
   onSubmit,
   redirectPath = "/pre-job/view-rfq",
+  isSubmitting: parentIsSubmitting, 
 }) => {
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [internalIsSubmitting, setInternalIsSubmitting] = useState(false);
+  const isSubmitting = parentIsSubmitting !== undefined ? parentIsSubmitting : internalIsSubmitting; 
 
   const validateEntry = (item) => {
     for (const field of fields) {
@@ -172,12 +174,12 @@ const CRMManager = ({
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    setInternalIsSubmitting(true); 
 
     const singleValidationError = validateSingleFields();
     if (singleValidationError) {
       toast.error(singleValidationError);
-      setIsSubmitting(false);
+      setInternalIsSubmitting(false);
       return;
     }
 
@@ -186,13 +188,13 @@ const CRMManager = ({
         const validationError = validateEntry(item);
         if (validationError) {
           toast.error(validationError);
-          setIsSubmitting(false);
+          setInternalIsSubmitting(false);
           return;
         }
       }
       if (formData.items.length === 0 || !formData.items.some((item) => item.item_name || item.quantity || item.unit)) {
         toast.error("Please add at least one valid item.");
-        setIsSubmitting(false);
+        setInternalIsSubmitting(false);
         return;
       }
     }
@@ -210,7 +212,7 @@ const CRMManager = ({
       console.error(`Error submitting to ${apiBaseUrl}:`, error.response?.data || error.message);
       toast.error("Failed to save RFQ. Please check the required fields.");
     } finally {
-      setIsSubmitting(false);
+      setInternalIsSubmitting(false);
     }
   };
 
@@ -339,6 +341,7 @@ CRMManager.propTypes = {
   onRemoveItem: PropTypes.func.isRequired,
   onSubmit: PropTypes.func,
   redirectPath: PropTypes.string,
+  isSubmitting: PropTypes.bool,
 };
 
 export default CRMManager;
