@@ -127,16 +127,12 @@ const PartialOrderSelection = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      setCreatedPartialOrders((prev) => [...prev, { ...response.data, items: selectedItems }]);
+      const newPartialOrder = { ...response.data, items: selectedItems };
+      setCreatedPartialOrders((prev) => [...prev, newPartialOrder]);
       setUsedItemIds((prev) => [...prev, ...selectedItemIds]);
       setSelectedItemIds([]);
       toast.success(`Partial purchase order ${createdPartialOrders.length + 1} created successfully!`);
       console.log("API Response:", response.data);
-
-      if (createdPartialOrders.length + 1 === numberOfPartialOrders) {
-        toast.success("All required partial orders created!");
-        navigate("/pre-job/view-quotation", { state: { quotationId: quotationData.id, partialOrders: [...createdPartialOrders, { ...response.data, items: selectedItems }] } });
-      }
     } catch (err) {
       console.error("Failed to create partial purchase order:", err);
       toast.error("Failed to create partial purchase order: " + (err.response?.data?.detail || "Unknown error"));
@@ -160,7 +156,7 @@ const PartialOrderSelection = () => {
       console.warn("Not all items used:", usedItemIds, savedItems.length);
       return;
     }
-    navigate("/pre-job/view-quotation", { state: { quotationId: quotationData.id, partialOrders: createdPartialOrders } });
+    navigate("/pre-job/view-quotation", { state: { quotationId: quotationData.id, partialOrders: createdPartialOrders, refresh: true } });
   };
 
   // Filter remaining items

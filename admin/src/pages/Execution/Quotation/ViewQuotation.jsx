@@ -18,6 +18,7 @@ const ViewQuotation = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [partialOrders, setPartialOrders] = useState([]);
   const [uploadedPOFiles, setUploadedPOFiles] = useState({}); // Track uploaded files per quotation
+  const [showUploadPOModal, setShowUploadPOModal] = useState(false); // New state for upload PO modal
   const itemsPerPage = 20;
 
   const fetchQuotations = async () => {
@@ -305,12 +306,16 @@ const ViewQuotation = () => {
     }
   };
 
-  const handlePoFileChange = (e) => {
+  const handlePoFileChange = (e, index) => {
     const file = e.target.files[0];
-    setPurchaseOrderData((prev) => ({
-      ...prev,
-      po_file: file || null,
-    }));
+    setPurchaseOrderData((prev) => {
+      const newFiles = prev?.po_files ? [...prev.po_files] : [];
+      newFiles[index] = file;
+      return {
+        ...prev,
+        po_files: newFiles,
+      };
+    });
   };
 
   const handleSavePurchaseOrder = async () => {
@@ -334,6 +339,10 @@ const ViewQuotation = () => {
     );
     if (purchaseOrderData.po_file) {
       formData.append("po_file", purchaseOrderData.po_file);
+    } else if (purchaseOrderData.po_files) {
+      purchaseOrderData.po_files.forEach((file, index) => {
+        if (file) formData.append(`po_file_${index}`, file);
+      });
     }
 
     try {
@@ -360,11 +369,12 @@ const ViewQuotation = () => {
         ...prev,
         [convertPurchaseOrder.id]: {
           client_po_number: purchaseOrderData.client_po_number,
-          fileName: purchaseOrderData.po_file ? purchaseOrderData.po_file.name : null,
+          fileName: purchaseOrderData.po_file ? purchaseOrderData.po_file.name : purchaseOrderData.po_files.map(f => f?.name).join(", "),
         },
       }));
       setConvertPurchaseOrder(null);
       setPurchaseOrderData(null);
+      setShowUploadPOModal(false); // Close upload modal
       fetchQuotations();
     } catch (err) {
       console.error("Failed to create purchase order:", err);
@@ -666,23 +676,29 @@ const ViewQuotation = () => {
                       Convert to PO
                     </button>
                   )}
-                  {quotation.purchase_order && quotation.purchase_order.some(po => po.order_type === "partial") && (
+                  {(quotation.purchase_order && quotation.purchase_order.some(po => po.order_type === "partial") && !uploadedPOFiles[quotation.id]) && (
                     <button
                       onClick={() => {
                         setConvertPurchaseOrder(quotation);
                         setPurchaseOrderData({
                           ...quotation,
-                          client_po_number: uploadedPOFiles[quotation.id]?.client_po_number || "",
-                          po_file: null,
+                          client_po_number: "",
+                          po_files: new Array(partialOrders.length).fill(null), // Initialize array for multiple files
                           order_type: "partial",
                         });
+                        setShowUploadPOModal(true);
                       }}
-                      className={`px-3 py-2 text-sm rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-200 flex items-center ${
-                        uploadedPOFiles[quotation.id] ? "bg-gray-300 text-gray-500 cursor-not-allowed" : ""
-                      }`}
-                      disabled={!!uploadedPOFiles[quotation.id]}
+                      className="px-3 py-2 text-sm rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-200 flex items-center"
                     >
                       <Upload size={16} className="mr-1" /> Upload PO
+                    </button>
+                  )}
+                  {uploadedPOFiles[quotation.id] && (
+                    <button
+                      disabled
+                      className="px-3 py-2 text-sm rounded bg-gray-300 text-gray-500 cursor-not-allowed flex items-center"
+                    >
+                      <Upload size={16} className="mr-1" /> Upload PO (Uploaded)
                     </button>
                   )}
                   <button
@@ -928,55 +944,48 @@ const ViewQuotation = () => {
         </div>
       )}
 
-      {convertPurchaseOrder && purchaseOrderData && purchaseOrderData.order_type === "partial" && (
+      {showUploadPOModal && convertPurchaseOrder && purchaseOrderData && purchaseOrderData.order_type === "partial" && (
         <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50 transition-opacity duration-300">
-          <div className="bg-white rounded-lg shadow-sm p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-3 text-black border-b pb-2">
-              Upload PO for Quotation #{convertPurchaseOrder.quotation_no}
+          <div className="bg-gradient-to-br from-indigo-100 to-white rounded-lg shadow-2xl p-6 w-full max-w-2xl h-[80vh] overflow-y-auto">
+            <h3 className="text-2xl font-bold mb-4 text-indigo-900 border-b-2 border-indigo-300 pb-2">
+              Upload PO Files for Quotation #{convertPurchaseOrder.quotation_no}
             </h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700">Client PO Number</label>
-              <input
-                type="text"
-                value={purchaseOrderData.client_po_number}
-                onChange={(e) =>
-                  setPurchaseOrderData((prev) => ({
-                    ...prev,
-                    client_po_number: e.target.value,
-                  }))
-                }
-                className="w-full p-2 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                placeholder="Enter Client PO Number (Optional)"
-              />
+            <p className="text-gray-600 mb-6">
+              Please upload {partialOrders.length} PO files corresponding to the {partialOrders.length} partial orders created.
+            </p>
+            <div className="space-y-4">
+              {Array.from({ length: partialOrders.length }, (_, index) => (
+                <div key={index} className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-2">Partial Order {index + 1}</h4>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700">Upload PO File</label>
+                    <input
+                      type="file"
+                      onChange={(e) => handlePoFileChange(e, index)}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-200"
+                    />
+                  </div>
+                  {purchaseOrderData.po_files && purchaseOrderData.po_files[index] && (
+                    <p className="text-sm text-green-600 mt-1">Selected: {purchaseOrderData.po_files[index].name}</p>
+                  )}
+                </div>
+              ))}
             </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700">Upload PO File</label>
-              <input
-                type="file"
-                onChange={handlePoFileChange}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
-            {uploadedPOFiles[convertPurchaseOrder.id] && (
-              <div className="mb-4">
-                <p className="text-sm text-gray-700">Uploaded PO: {uploadedPOFiles[convertPurchaseOrder.id].fileName}</p>
-                <p className="text-sm text-gray-700">Client PO Number: {uploadedPOFiles[convertPurchaseOrder.id].client_po_number}</p>
-              </div>
-            )}
-            <div className="flex justify-end space-x-2">
+            <div className="mt-6 flex justify-end space-x-4">
               <button
                 onClick={handleSavePurchaseOrder}
-                className="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 transition-colors duration-200 flex items-center"
-                disabled={!purchaseOrderData.po_file && !purchaseOrderData.client_po_number}
+                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-200 flex items-center disabled:bg-gray-400"
+                disabled={purchaseOrderData.po_files?.some(file => !file)}
               >
-                <Upload size={16} className="mr-1" /> Save Purchase Order
+                <Upload size={18} className="mr-2" /> Save All POs
               </button>
               <button
                 onClick={() => {
+                  setShowUploadPOModal(false);
                   setConvertPurchaseOrder(null);
                   setPurchaseOrderData(null);
                 }}
-                className="bg-gray-200 text-black px-3 py-2 rounded hover:bg-gray-300 transition-colors duration-200"
+                className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition duration-200"
               >
                 Cancel
               </button>
