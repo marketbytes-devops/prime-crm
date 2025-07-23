@@ -40,7 +40,6 @@ const ViewQuotation = () => {
             console.error(`Failed to fetch RFQ ${quotation.rfq} for quotation ${quotation.id}:`, err);
             rfqDetails = {
               rfq_no: "",
-              reference: "",
               rfq_channel: "",
               assign_to_name: "",
               assign_to_designation: "",
@@ -418,7 +417,6 @@ const ViewQuotation = () => {
           <p><strong>Latest Remarks:</strong> ${quotation.latest_remarks || ""}</p>
           <h3>RFQ Details</h3>
           <p><strong>RFQ No:</strong> ${quotation.rfq_details?.rfq_no || ""}</p>
-          <p><strong>Reference:</strong> ${quotation.rfq_details?.reference || ""}</p>
           <p><strong>RFQ Channel:</strong> ${quotation.rfq_details?.rfq_channel || ""}</p>
           <p><strong>Assigned To:</strong> ${quotation.rfq_details?.assign_to_name || ""}</p>
           <p><strong>Designation:</strong> ${quotation.rfq_details?.assign_to_designation || ""}</p>
@@ -553,15 +551,13 @@ const ViewQuotation = () => {
     { name: "attention_email", label: "Attention Email", type: "email" },
     { name: "created_at", label: "Created At", type: "date" },
     { name: "due_date", label: "Due Date", type: "date" },
-    { name: "when_approved", label: "When Approved", type: "date" },
     { name: "current_status", label: "Status", type: "text" },
     { name: "next_followup_date", label: "Next Followup Date", type: "date" },
-    { name: "latest_remarks", label: "Latest Remarks", type: "text" },
     { name: "rfq_details.rfq_no", label: "RFQ No", type: "text" },
-    { name: "rfq_details.reference", label: "Reference", type: "text" },
     { name: "rfq_details.rfq_channel", label: "RFQ Channel", type: "text" },
     { name: "rfq_details.assign_to_name", label: "Assigned To", type: "text" },
     { name: "rfq_details.assign_to_designation", label: "Designation", type: "text" },
+    { name: "latest_remarks", label: "Latest Remarks", type: "text" },
   ];
 
   const repeatableFields = [

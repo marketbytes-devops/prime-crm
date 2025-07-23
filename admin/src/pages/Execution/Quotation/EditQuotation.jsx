@@ -120,7 +120,7 @@ const EditQuotation = () => {
     { name: "rfq_details.rfq_no", label: "RFQ No", type: "text" },
     { name: "rfq_details.reference", label: "Reference", type: "text" },
     { name: "rfq_details.rfq_channel", label: "RFQ Channel", type: "text" },
-    { name: "rfq_details.assign_to_name", label: "Assigned To", type: "text" },
+    { name: "rfq_details.assign_to_name", label: "Assigned Sales Person", type: "text" },
     { name: "rfq_details.assign_to_designation", label: "Designation", type: "text" },
   ];
 
