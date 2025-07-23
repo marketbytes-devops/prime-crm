@@ -53,3 +53,12 @@ class PurchaseOrderItem(models.Model):
 
     def __str__(self):
         return f"{self.item_name or self.product_name} - {self.purchase_order}"
+
+# Add post_save signal
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+@receiver(post_save, sender=PurchaseOrder)
+def update_quotation_on_purchase_order_save(sender, instance, created, **kwargs):
+    if created:
+        instance.quotation.refresh_from_db()

@@ -65,13 +65,22 @@ const ViewQuotation = () => {
         new Date(b.created_at) - new Date(a.created_at)
       );
       setQuotations(sortedQuotations);
-      if (location.state?.quotationId && !location.state?.refresh) {
+      if (location.state?.quotationId) {
         const newQuotation = sortedQuotations.find((q) => q.id === location.state.quotationId);
         if (newQuotation) {
           setSelectedQuotation(newQuotation);
           const existingPOs = newQuotation.purchase_order?.filter(po => po.order_type === "partial") || [];
           const statePartialOrders = location.state?.partialOrders || [];
-          setPartialOrders(statePartialOrders.length > 0 ? statePartialOrders : existingPOs);
+          setPartialOrders(statePartialOrders.length > 0 ? statePartialOrders : existingPOs.map(po => ({
+            ...po,
+            items: po.items.map(item => ({
+              ...item,
+              item_name: item.item_name || item.product_name || "",
+              quantity: item.quantity || "",
+              unit: item.unit || "",
+              unit_price: item.unit_price || 0.00,
+            })),
+          })));
           if (location.state?.uploadedPOFiles && location.state?.quotationId in location.state.uploadedPOFiles) {
             setUploadedPOFiles(prev => ({ ...prev, [location.state.quotationId]: location.state.uploadedPOFiles[location.state.quotationId] }));
           }
