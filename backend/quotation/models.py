@@ -24,14 +24,13 @@ class Quotation(models.Model):
 class QuotationItem(models.Model):
     quotation = models.ForeignKey(Quotation, related_name="items", on_delete=models.CASCADE)
     item_name = models.CharField(max_length=255, null=True, blank=True)
-    product_name = models.CharField(max_length=255, null=True, blank=True)
     quantity = models.IntegerField(null=True, blank=True)
     unit = models.CharField(max_length=50, null=True, blank=True)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     total_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.item_name or self.product_name} - {self.quotation.quotation_no}"
+        return f"{self.item_name} - {self.quotation.quotation_no}"
 
 class PurchaseOrder(models.Model):
     quotation = models.ForeignKey(Quotation, related_name="purchase_order", on_delete=models.CASCADE)
@@ -46,15 +45,13 @@ class PurchaseOrder(models.Model):
 class PurchaseOrderItem(models.Model):
     purchase_order = models.ForeignKey(PurchaseOrder, related_name="items", on_delete=models.CASCADE)
     item_name = models.CharField(max_length=255, null=True, blank=True)
-    product_name = models.CharField(max_length=255, null=True, blank=True)
     quantity = models.IntegerField()
     unit = models.CharField(max_length=50, null=True, blank=True)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.item_name or self.product_name} - {self.purchase_order}"
+        return f"{self.item_name} - {self.purchase_order}"
 
-# Add post_save signal
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 

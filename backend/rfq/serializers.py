@@ -5,6 +5,7 @@ from .models import RFQ, RFQChannel, Client, RFQItem
 from team.models import TeamMember
 from series.models import NumberSeries
 from quotation.models import QuotationItem  
+from datetime import date
 
 class RFQChannelSerializer(serializers.ModelSerializer):
     class Meta:
@@ -25,7 +26,7 @@ class ClientSerializer(serializers.ModelSerializer):
 class RFQItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = RFQItem
-        fields = ['id', 'item_name', 'product_name', 'quantity', 'unit', 'unit_price']
+        fields = ['id', 'item_name', 'quantity', 'unit', 'unit_price']
 
 class RFQSerializer(serializers.ModelSerializer):
     rfq_channel = serializers.CharField(allow_null=True, required=False)
@@ -47,7 +48,7 @@ class RFQSerializer(serializers.ModelSerializer):
             'rfq_channel', 'attention_name', 'attention_phone', 'attention_email',
             'due_date', 'assign_to', 'assigned_sales_person',
             'items', 'current_status', 'rfq_no', 'series',
-            'assign_to_name', 'assign_to_designation', 'assign_to_email'  # Added missing fields
+            'assign_to_name', 'assign_to_designation', 'assign_to_email' 
         ]
         extra_kwargs = {
             'assign_to': {'write_only': True}
@@ -60,7 +61,6 @@ class RFQSerializer(serializers.ModelSerializer):
                 'name': obj.assign_to.name,
                 'designation': obj.assign_to.designation,
                 'email': obj.assign_to.email,
-                'phone': obj.assign_to.phone if hasattr(obj.assign_to, 'phone') else None
             }
         return None
 
@@ -331,7 +331,6 @@ class RFQSerializer(serializers.ModelSerializer):
                 QuotationItem.objects.create(
                     quotation=quotation,
                     item_name=item_data.get('item_name'),
-                    product_name=item_data.get('product_name'),
                     quantity=item_data.get('quantity'),
                     unit=item_data.get('unit'),
                     unit_price=item_data.get('unit_price'),

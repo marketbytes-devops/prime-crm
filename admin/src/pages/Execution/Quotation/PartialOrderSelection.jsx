@@ -113,7 +113,6 @@ const PartialOrderSelection = () => {
         JSON.stringify(
           selectedItems.map((item) => ({
             item_name: item.item_name || null,
-            product_name: item.product_name || null,
             quantity: item.quantity,
             unit: item.unit || null,
             unit_price: item.unit_price || null,
@@ -198,7 +197,7 @@ const PartialOrderSelection = () => {
                     <thead>
                       <tr className="bg-gray-100">
                         <th className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap">
-                          Item/Product
+                          Item
                         </th>
                         <th className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap">
                           Quantity
@@ -215,13 +214,13 @@ const PartialOrderSelection = () => {
                       {order.items.map((item) => (
                         <tr key={item.id} className="border-t hover:bg-gray-50">
                           <td className="px-4 py-3 text-sm text-black whitespace-nowrap">
-                            {item.item_name || item.product_name || "N/A"}
+                            {item.item_name || ""}
                           </td>
                           <td className="px-4 py-3 text-sm text-black whitespace-nowrap">
-                            {item.quantity || "N/A"}
+                            {item.quantity || ""}
                           </td>
                           <td className="px-4 py-3 text-sm text-black whitespace-nowrap">
-                            {item.unit || "N/A"}
+                            {item.unit || ""}
                           </td>
                           <td className="px-4 py-3 text-sm text-black whitespace-nowrap">
                             ${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}
@@ -252,7 +251,7 @@ const PartialOrderSelection = () => {
                       Select
                     </th>
                     <th className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap">
-                      Item/Product
+                      Item
                     </th>
                     <th className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap">
                       Quantity
@@ -277,13 +276,13 @@ const PartialOrderSelection = () => {
                         />
                       </td>
                       <td className="px-4 py-3 text-sm text-black whitespace-nowrap">
-                        {item.item_name || item.product_name || "N/A"}
+                        {item.item_name || ""}
                       </td>
                       <td className="px-4 py-3 text-sm text-black whitespace-nowrap">
-                        {item.quantity || "N/A"}
+                        {item.quantity || ""}
                       </td>
                       <td className="px-4 py-3 text-sm text-black whitespace-nowrap">
-                        {item.unit || "N/A"}
+                        {item.unit || ""}
                       </td>
                       <td className="px-4 py-3 text-sm text-black whitespace-nowrap">
                         ${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}

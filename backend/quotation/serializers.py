@@ -9,7 +9,7 @@ class PurchaseOrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PurchaseOrderItem
-        fields = ['id', 'item_name', 'product_name', 'quantity', 'unit', 'unit_price', 'total_price']
+        fields = ['id', 'item_name', 'quantity', 'unit', 'unit_price', 'total_price']
 
     def get_total_price(self, obj):
         if obj.quantity and obj.unit_price is not None:
@@ -47,7 +47,7 @@ class QuotationItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuotationItem
-        fields = ['id', 'item_name', 'product_name', 'quantity', 'unit', 'unit_price', 'total_price']
+        fields = ['id', 'item_name', 'quantity', 'unit', 'unit_price', 'total_price']
 
     def get_total_price(self, obj):
         if obj.quantity and obj.unit_price is not None:

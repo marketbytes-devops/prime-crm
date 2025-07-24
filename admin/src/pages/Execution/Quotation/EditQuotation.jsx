@@ -56,14 +56,12 @@ const EditQuotation = () => {
   const handleAddItem = () => {
     setFormData((prev) => {
       const hasItems = prev.items.some((item) => item.item_name && item.item_name.trim() !== "");
-      const hasProducts = prev.items.some((item) => item.product_name && item.product_name.trim() !== "");
       return {
         ...prev,
         items: [
           ...prev.items,
           {
             item_name: hasItems ? "" : null,
-            product_name: hasProducts ? "" : null,
             quantity: 0,
             unit: "",
             unit_price: 0,
@@ -98,7 +96,6 @@ const EditQuotation = () => {
       latest_remarks: formData.latest_remarks || null,
       items: formData.items.map((item) => ({
         item_name: item.item_name || null,
-        product_name: item.product_name || null,
         quantity: item.quantity || null,
         unit: item.unit || null,
         unit_price: item.unit_price || null,
@@ -139,7 +136,6 @@ const EditQuotation = () => {
 
   const allItemFields = [
     { name: "item_name", label: "Item", type: "text", placeholder: "Enter Item Name" },
-    { name: "product_name", label: "Product", type: "text", placeholder: "Enter Product Name" },
     { name: "quantity", label: "Quantity", type: "number", placeholder: "Enter Quantity" },
     { name: "unit", label: "Unit", type: "text", placeholder: "Enter Unit" },
     { name: "unit_price", label: "Unit Price", type: "number", placeholder: "Enter Unit Price" },
@@ -148,14 +144,12 @@ const EditQuotation = () => {
 
   const getItemFields = (items) => {
     const hasItems = items.some((item) => item.item_name && item.item_name.trim() !== "");
-    const hasProducts = items.some((item) => item.product_name && item.product_name.trim() !== "");
     const hasUnitPrice = items.some((item) => item.unit_price != null);
     const hasTotalPrice = items.some((item) => item.total_price != null);
 
     return allItemFields.filter((field) => {
       return (
         (hasItems && field.name === "item_name") ||
-        (hasProducts && field.name === "product_name") ||
         field.name === "quantity" ||
         field.name === "unit" ||
         (hasUnitPrice && field.name === "unit_price") ||
@@ -220,12 +214,11 @@ const EditQuotation = () => {
         {formData.items && formData.items.length > 0 && (
           <div className="mt-4">
             <h3 className="text-md font-semibold mb-2 text-black">
-              {formData.items.some((item) => item.item_name && item.item_name.trim() !== "") &&
-              formData.items.some((item) => item.product_name && item.product_name.trim() !== "")
-                ? "Items & Products"
+              {formData.items.some((item) => item.item_name && item.item_name.trim() !== "") && ""
+                ? "Items"
                 : formData.items.some((item) => item.item_name && item.item_name.trim() !== "")
                 ? "Items"
-                : "Products"}
+                : ""}
             </h3>
             <div className="overflow-x-auto">
               <table className="min-w-full bg-gray-100 rounded-lg">

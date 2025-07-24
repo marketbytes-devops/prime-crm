@@ -25,7 +25,6 @@ const ViewQuotation = () => {
     try {
       setLoading(true);
       const response = await apiClient.get("/quotations/");
-      console.log("API Response:", response.data);
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
       const updatedQuotations = await Promise.all(
         data.map(async (quotation, index) => {
@@ -36,26 +35,31 @@ const ViewQuotation = () => {
               const rfqResponse = await apiClient.get(`/add-rfqs/${quotation.rfq}/`);
               rfqDetails = {
                 ...rfqResponse.data,
-                assign_to: rfqResponse.data.assign_to_name || "", // Map assign_to to the team member's name
+                assigned_sales_person: rfqResponse.data.assigned_sales_person || {
+                  name: rfqResponse.data.assign_to_name || "Unassigned",
+                  designation: rfqResponse.data.assign_to_designation || "",
+                  email: rfqResponse.data.assign_to_email || "",
+                },
               };
               if (!items.length && rfqDetails.items) {
-                items = rfqDetails.items.map(item => ({
+                items = rfqDetails.items.map((item) => ({
                   id: item.id || null,
                   item_name: item.item_name || "",
-                  product_name: item.product_name || "",
                   quantity: item.quantity || 1,
                   unit: item.unit || "",
-                  unit_price: item.unit_price || 0.00,
-                  total_price: (item.quantity || 0) * (item.unit_price || 0.00)
+                  unit_price: item.unit_price || 0.0,
+                  total_price: (item.quantity || 0) * (item.unit_price || 0.0),
                 }));
               }
             } else {
-              console.warn(`No RFQ ID for quotation ${quotation.id}`);
               rfqDetails = {
                 rfq_no: "",
                 rfq_channel: "",
-                assign_to: "",
-                assign_to_designation: "",
+                assigned_sales_person: {
+                  name: "Unassigned",
+                  designation: "",
+                  email: "",
+                },
               };
             }
             const nextFollowupDate = calculateNextFollowupDate(quotation);
@@ -73,34 +77,37 @@ const ViewQuotation = () => {
               rfq_details: rfqDetails,
               items,
               purchase_order: quotation.purchase_order || [],
-              assign_to: rfqDetails.assign_to || "", 
+              assign_to: rfqDetails.assigned_sales_person?.name || "Unassigned",
             };
           } catch (err) {
-            console.error(`Failed to fetch RFQ ${quotation.rfq} for quotation ${quotation.id}:`, err);
+            console.error(`Failed to fetch RFQ ${quotation.rfq}:`, err);
             rfqDetails = {
               rfq_no: "",
               rfq_channel: "",
-              assign_to: "",
-              assign_to_designation: "",
+              assigned_sales_person: {
+                name: "Unassigned",
+                designation: "",
+                email: "",
+              },
+            };
+            const nextFollowupDate = calculateNextFollowupDate(quotation);
+            const isDueReminder =
+              quotation.current_status === "Approved" &&
+              (!quotation.purchase_order || quotation.purchase_order.length === 0) &&
+              new Date(quotation.due_date) < new Date().setHours(0, 0, 0, 0);
+            return {
+              ...quotation,
+              si_no: index + 1,
+              current_status: quotation.current_status || "Pending",
+              next_followup_date: nextFollowupDate,
+              is_due_reminder: isDueReminder,
+              latest_remarks: quotation.latest_remarks || "",
+              rfq_details: rfqDetails,
+              items,
+              purchase_order: quotation.purchase_order || [],
+              assign_to: rfqDetails.assigned_sales_person?.name || "Unassigned",
             };
           }
-          const nextFollowupDate = calculateNextFollowupDate(quotation);
-          const isDueReminder =
-            quotation.current_status === "Approved" &&
-            (!quotation.purchase_order || quotation.purchase_order.length === 0) &&
-            new Date(quotation.due_date) < new Date().setHours(0, 0, 0, 0);
-          return {
-            ...quotation,
-            si_no: index + 1,
-            current_status: quotation.current_status || "Pending",
-            next_followup_date: nextFollowupDate,
-            is_due_reminder: isDueReminder,
-            latest_remarks: quotation.latest_remarks || "",
-            rfq_details: rfqDetails,
-            items,
-            purchase_order: quotation.purchase_order || [],
-            assign_to: rfqDetails.assign_to || "",
-          };
         })
       );
       const sortedQuotations = updatedQuotations.sort((a, b) =>
@@ -111,22 +118,28 @@ const ViewQuotation = () => {
         const newQuotation = sortedQuotations.find((q) => q.id === location.state.quotationId);
         if (newQuotation) {
           setSelectedQuotation(newQuotation);
-          console.log("Selected Quotation:", newQuotation);
-          const existingPOs = newQuotation.purchase_order?.filter(po => po.order_type === "partial") || [];
+          const existingPOs = newQuotation.purchase_order?.filter((po) => po.order_type === "partial") || [];
           const statePartialOrders = location.state?.partialOrders || [];
-          setPartialOrders(statePartialOrders.length > 0 ? statePartialOrders : existingPOs.map(po => ({
-            ...po,
-            items: po.items?.map(item => ({
-              ...item,
-              item_name: item.item_name || item.product_name || "",
-              quantity: item.quantity || 1,
-              unit: item.unit || "",
-              unit_price: item.unit_price || 0.00,
-              total_price: (item.quantity || 0) * (item.unit_price || 0.00)
-            })) || [],
-          })));
+          setPartialOrders(
+            statePartialOrders.length > 0
+              ? statePartialOrders
+              : existingPOs.map((po) => ({
+                  ...po,
+                  items: po.items?.map((item) => ({
+                    ...item,
+                    item_name: item.item_name || "",
+                    quantity: item.quantity || 1,
+                    unit: item.unit || "",
+                    unit_price: item.unit_price || 0.0,
+                    total_price: (item.quantity || 0) * (item.unit_price || 0.0),
+                  })) || [],
+                }))
+          );
           if (location.state?.uploadedPOFiles && location.state?.quotationId in location.state.uploadedPOFiles) {
-            setUploadedPOFiles(prev => ({ ...prev, [location.state.quotationId]: location.state.uploadedPOFiles[location.state.quotationId] }));
+            setUploadedPOFiles((prev) => ({
+              ...prev,
+              [location.state.quotationId]: location.state.uploadedPOFiles[location.state.quotationId],
+            }));
           }
         }
       }
@@ -178,18 +191,15 @@ const ViewQuotation = () => {
           ? quotationToUpdate.items.map((item) => ({
               id: item.id || null,
               item_name: item.item_name || null,
-              product_name: item.product_name || null,
               quantity: item.quantity || 1,
               unit: item.unit || null,
-              unit_price: item.unit_price || 0.00,
-              total_price: (item.quantity || 1) * (item.unit_price || 0.00),
+              unit_price: item.unit_price || 0.0,
+              total_price: (item.quantity || 1) * (item.unit_price || 0.0),
             }))
           : [],
       };
-      console.log("Updating quotation status with payload:", payload);
 
       const response = await apiClient.put(`/quotations/${quotationId}/`, payload);
-      console.log("API response:", response.data);
       const updatedQuotation = response.data;
 
       setQuotations((prev) =>
@@ -243,9 +253,7 @@ const ViewQuotation = () => {
       if (err.response?.status === 400 && err.response?.data?.rfq && err.response?.data?.items) {
         try {
           const patchPayload = { current_status: newStatus };
-          console.log("Falling back to PATCH with payload:", patchPayload);
           const patchResponse = await apiClient.patch(`/quotations/${quotationId}/`, patchPayload);
-          console.log("PATCH API response:", patchResponse.data);
           const patchedQuotation = patchResponse.data;
 
           setQuotations((prev) =>
@@ -331,7 +339,7 @@ const ViewQuotation = () => {
       });
     } else if (orderType === "partial") {
       const totalItems = convertPurchaseOrder.items.length;
-      const existingPartialOrders = convertPurchaseOrder.purchase_order?.filter(po => po.order_type === "partial").length || 0;
+      const existingPartialOrders = convertPurchaseOrder.purchase_order?.filter((po) => po.order_type === "partial").length || 0;
       const maxSelectableItems = totalItems - existingPartialOrders - 1;
 
       if (maxSelectableItems <= 0) {
@@ -373,8 +381,7 @@ const ViewQuotation = () => {
       JSON.stringify(
         purchaseOrderData.items.map((item) => ({
           item_name: item.item_name || null,
-          product_name: item.product_name || null,
-          quantity: item.quantity,
+          quantity: item.quantity || null,
           unit: item.unit || null,
           unit_price: item.unit_price || null,
         }))
@@ -389,18 +396,16 @@ const ViewQuotation = () => {
     }
 
     try {
-      console.log("Saving PO with FormData:", Object.fromEntries(formData));
       const response = await apiClient.post("/purchase-orders/", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      console.log("PO Creation Response:", response.data);
       toast.success("Purchase order created successfully!");
       setQuotations((prev) =>
         prev.map((q) =>
           q.id === convertPurchaseOrder.id
-            ? { 
-                ...q, 
-                purchase_order: [...(q.purchase_order || []), response.data], 
+            ? {
+                ...q,
+                purchase_order: [...(q.purchase_order || []), response.data],
                 current_status: "PO Created",
               }
             : q
@@ -413,11 +418,13 @@ const ViewQuotation = () => {
           current_status: "PO Created",
         }));
       }
-      setUploadedPOFiles(prev => ({
+      setUploadedPOFiles((prev) => ({
         ...prev,
         [convertPurchaseOrder.id]: {
           client_po_number: purchaseOrderData.client_po_number,
-          fileName: purchaseOrderData.po_file ? purchaseOrderData.po_file.name : purchaseOrderData.po_files.map(f => f?.name).join(", "),
+          fileName: purchaseOrderData.po_file
+            ? purchaseOrderData.po_file.name
+            : purchaseOrderData.po_files.map((f) => f?.name).join(", "),
           created_at: response.data.created_at,
           order_type: response.data.order_type,
         },
@@ -469,16 +476,18 @@ const ViewQuotation = () => {
           <h3>RFQ Details</h3>
           <p><strong>RFQ No:</strong> ${quotation.rfq_details?.rfq_no || ""}</p>
           <p><strong>RFQ Channel:</strong> ${quotation.rfq_details?.rfq_channel || ""}</p>
-          <p><strong>Assigned Sales Person:</strong> ${quotation.rfq_details?.assign_to || ""}</p>
-          <p><strong>Designation:</strong> ${quotation.rfq_details?.assign_to_designation || ""}</p>
+          <p><strong>Assigned Sales Person:</strong> ${quotation.assign_to || "Unassigned"}</p>
+          <p><strong>Designation:</strong> ${quotation.rfq_details?.assigned_sales_person?.designation || ""}</p>
+          <p><strong>Email:</strong> ${quotation.rfq_details?.assigned_sales_person?.email || ""}</p>
         </div>
-        ${quotation.items && quotation.items.length > 0
-          ? `
-          <h3>Items & Products</h3>
+        ${
+          quotation.items && quotation.items.length > 0
+            ? `
+          <h3>Items</h3>
           <table>
             <thead>
               <tr>
-                <th>Item/Product</th>
+                <th>Item</th>
                 <th>Quantity</th>
                 <th>Unit</th>
                 <th>Unit Price</th>
@@ -490,7 +499,7 @@ const ViewQuotation = () => {
                 .map(
                   (item) => `
                 <tr>
-                  <td>${item.item_name || item.product_name || "N/A"}</td>
+                  <td>${item.item_name || "N/A"}</td>
                   <td>${item.quantity || "N/A"}</td>
                   <td>${item.unit || "N/A"}</td>
                   <td>$${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}</td>
@@ -507,20 +516,22 @@ const ViewQuotation = () => {
               .toFixed(2)}
           </div>
         `
-          : ""
+            : ""
         }
-        ${quotation.purchase_order && quotation.purchase_order.length > 0
-          ? `
+        ${
+          quotation.purchase_order && quotation.purchase_order.length > 0
+            ? `
           <h3>Purchase Orders</h3>
           ${quotation.purchase_order
-            .map((po, index) => `
+            .map(
+              (po, index) => `
               <h4>Purchase Order ${index + 1} (${po.order_type})</h4>
               <p><strong>Client PO Number:</strong> ${uploadedPOFiles[quotation.id]?.client_po_number || po.client_po_number || "N/A"}</p>
               <p><strong>Created At:</strong> ${uploadedPOFiles[quotation.id]?.created_at || po.created_at ? new Date(uploadedPOFiles[quotation.id]?.created_at || po.created_at).toLocaleDateString() : "N/A"}</p>
               <table>
                 <thead>
                   <tr>
-                    <th>Item/Product</th>
+                    <th>Item</th>
                     <th>Quantity</th>
                     <th>Unit</th>
                     <th>Unit Price</th>
@@ -528,29 +539,33 @@ const ViewQuotation = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  ${po.items && po.items.length > 0
-                    ? po.items
-                        .map(
-                          (item) => `
+                  ${
+                    po.items && po.items.length > 0
+                      ? po.items
+                          .map(
+                            (item) => `
                     <tr>
-                      <td>${item.item_name || item.product_name || "N/A"}</td>
+                      <td>${item.item_name || "N/A"}</td>
                       <td>${item.quantity || "N/A"}</td>
                       <td>${item.unit || "N/A"}</td>
                       <td>$${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}</td>
                       <td>$${item.total_price != null ? Number(item.total_price).toFixed(2) : "0.00"}</td>
                     </tr>
                   `
-                        )
-                        .join("")
-                    : "<tr><td colspan='5'>No items in this purchase order.</td></tr>"}
+                          )
+                          .join("")
+                      : "<tr><td colspan='5'>No items in this purchase order.</td></tr>"
+                  }
                 </tbody>
               </table>
               <div class="total">
                 Total for Purchase Order ${index + 1}: $${po.total_price != null ? Number(po.total_price).toFixed(2) : "0.00"}
               </div>
-            `).join("")}
+            `
+            )
+            .join("")}
         `
-          : ""
+            : ""
         }
         <button class="no-print" onclick="window.print()">Print</button>
       </body>
@@ -574,7 +589,7 @@ const ViewQuotation = () => {
       setQuotations((prev) => prev.filter((q) => q.id !== quotationId));
       setSelectedQuotation(null);
       setConvertPurchaseOrder(null);
-      setUploadedPOFiles(prev => {
+      setUploadedPOFiles((prev) => {
         const newFiles = { ...prev };
         delete newFiles[quotationId];
         return newFiles;
@@ -606,13 +621,11 @@ const ViewQuotation = () => {
   };
 
   const getRepeatableFields = (items) => {
-    const hasItems = items.some((item) => item.item_name && item.item_name.trim() !== "");
-    const hasProducts = items.some((item) => item.product_name && item.product_name.trim() !== "");
     const hasUnitPrice = items.some((item) => item.unit_price != null);
     const hasTotalPrice = items.some((item) => item.total_price != null);
 
     return [
-      { name: "item_name", label: "Item/Product", fallback: "product_name" },
+      { name: "item_name", label: "Item" },
       { name: "quantity", label: "Quantity" },
       { name: "unit", label: "Unit" },
       ...(hasUnitPrice ? [{ name: "unit_price", label: "Unit Price" }] : []),
@@ -625,7 +638,11 @@ const ViewQuotation = () => {
     { name: "created_at", label: "Created At", type: "date" },
     { name: "quotation_no", label: "Quotation No" },
     { name: "rfq_details.rfq_no", label: "RFQ No" },
-    { name: "rfq_details.assign_to", label: "Assigned Sales Person" },
+    {
+      name: "assign_to",
+      label: "Assigned Sales Person",
+      render: (quotation) => quotation.assign_to || "Unassigned",
+    },
     { name: "current_status", label: "Status" },
     { name: "next_followup_date", label: "Next Followup Date", type: "date" },
     { name: "latest_remarks", label: "Latest Remarks" },
@@ -646,13 +663,29 @@ const ViewQuotation = () => {
     { name: "next_followup_date", label: "Next Followup Date", type: "date" },
     { name: "rfq_details.rfq_no", label: "RFQ No", type: "text" },
     { name: "rfq_details.rfq_channel", label: "RFQ Channel", type: "text" },
-    { name: "rfq_details.assign_to", label: "Assigned Sales Person", type: "text" },
-    { name: "rfq_details.assign_to_designation", label: "Designation", type: "text" },
+    {
+      name: "assign_to",
+      label: "Assigned Sales Person",
+      type: "text",
+      value: (quotation) => quotation.assign_to || "Unassigned",
+    },
+    {
+      name: "rfq_details.assigned_sales_person.designation",
+      label: "Designation",
+      type: "text",
+      value: (quotation) => quotation.rfq_details?.assigned_sales_person?.designation || "",
+    },
+    {
+      name: "rfq_details.assigned_sales_person.email",
+      label: "Email",
+      type: "email",
+      value: (quotation) => quotation.rfq_details?.assigned_sales_person?.email || "",
+    },
     { name: "latest_remarks", label: "Latest Remarks", type: "text" },
   ];
 
   const partialOrderFields = [
-    { name: "item_name", label: "Item/Product", fallback: "product_name" },
+    { name: "item_name", label: "Item" },
     { name: "quantity", label: "Quantity" },
     { name: "unit", label: "Unit" },
     { name: "unit_price", label: "Unit Price" },
@@ -728,14 +761,12 @@ const ViewQuotation = () => {
                         className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         placeholder="Add remark"
                       />
-                    ) : field.name === "assign_to" ? (
-                      quotation[field.name] || ""
+                    ) : field.render ? (
+                      field.render(quotation)
                     ) : field.name.includes("rfq_details.") ? (
                       quotation.rfq_details[field.name.split(".")[1]] || ""
                     ) : field.type === "date" ? (
-                      quotation[field.name]
-                        ? new Date(quotation[field.name]).toLocaleDateString()
-                        : ""
+                      quotation[field.name] ? new Date(quotation[field.name]).toLocaleDateString() : ""
                     ) : (
                       quotation[field.name] || ""
                     )}
@@ -764,40 +795,44 @@ const ViewQuotation = () => {
                       Convert to PO
                     </button>
                   )}
-                  {(quotation.purchase_order && quotation.purchase_order.some(po => po.order_type === "partial") && !uploadedPOFiles[quotation.id]) && (
-                    <button
-                      onClick={() => {
-                        setConvertPurchaseOrder(quotation);
-                        setPurchaseOrderData({
-                          ...quotation,
-                          client_po_number: "",
-                          po_files: new Array(partialOrders.length).fill(null),
-                          order_type: "partial",
-                        });
-                        setShowUploadPOModal(true);
-                      }}
-                      className="px-3 py-2 text-sm rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-200 flex items-center"
-                    >
-                      <Upload size={16} className="mr-1" /> Upload PO
-                    </button>
-                  )}
-                  {(quotation.purchase_order && quotation.purchase_order.some(po => po.order_type === "full") && !uploadedPOFiles[quotation.id]) && (
-                    <button
-                      onClick={() => {
-                        setConvertPurchaseOrder(quotation);
-                        setPurchaseOrderData({
-                          ...quotation,
-                          client_po_number: "",
-                          po_file: null,
-                          order_type: "full",
-                        });
-                        setShowUploadPOModal(true);
-                      }}
-                      className="px-3 py-2 text-sm rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-200 flex items-center"
-                    >
-                      <Upload size={16} className="mr-1" /> Upload PO
-                    </button>
-                  )}
+                  {quotation.purchase_order &&
+                    quotation.purchase_order.some((po) => po.order_type === "partial") &&
+                    !uploadedPOFiles[quotation.id] && (
+                      <button
+                        onClick={() => {
+                          setConvertPurchaseOrder(quotation);
+                          setPurchaseOrderData({
+                            ...quotation,
+                            client_po_number: "",
+                            po_files: new Array(partialOrders.length).fill(null),
+                            order_type: "partial",
+                          });
+                          setShowUploadPOModal(true);
+                        }}
+                        className="px-3 py-2 text-sm rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-200 flex items-center"
+                      >
+                        <Upload size={16} className="mr-1" /> Upload PO
+                      </button>
+                    )}
+                  {quotation.purchase_order &&
+                    quotation.purchase_order.some((po) => po.order_type === "full") &&
+                    !uploadedPOFiles[quotation.id] && (
+                      <button
+                        onClick={() => {
+                          setConvertPurchaseOrder(quotation);
+                          setPurchaseOrderData({
+                            ...quotation,
+                            client_po_number: "",
+                            po_file: null,
+                            order_type: "full",
+                          });
+                          setShowUploadPOModal(true);
+                        }}
+                        className="px-3 py-2 text-sm rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-200 flex items-center"
+                      >
+                        <Upload size={16} className="mr-1" /> Upload PO
+                      </button>
+                    )}
                   {uploadedPOFiles[quotation.id] && (
                     <button
                       disabled
@@ -866,31 +901,15 @@ const ViewQuotation = () => {
                   ? getRepeatableFields(selectedQuotation.items)
                   : []
               }
-              title={
-                selectedQuotation.items && selectedQuotation.items.length > 0
-                  ? (() => {
-                      const hasItems = selectedQuotation.items.some(
-                        (item) => item.item_name && item.item_name.trim() !== ""
-                      );
-                      const hasProducts = selectedQuotation.items.some(
-                        (item) => item.product_name && item.product_name.trim() !== ""
-                      );
-                      return hasItems && hasProducts
-                        ? "Items & Products"
-                        : hasItems
-                          ? "Items"
-                          : hasProducts
-                            ? "Products"
-                            : "";
-                    })()
-                  : ""
-              }
+              title={selectedQuotation.items && selectedQuotation.items.length > 0 ? "Items" : ""}
               showRepeatableFields={selectedQuotation.items && selectedQuotation.items.length > 0}
               initialData={selectedQuotation}
             />
             <div className="mb-6">
-              {console.log("Partial Orders:", partialOrders || selectedQuotation.purchase_order?.filter(po => po.order_type === "partial") || [])}
-              {(partialOrders.length > 0 ? partialOrders : selectedQuotation.purchase_order?.filter(po => po.order_type === "partial") || []).map((order, index) => (
+              {(partialOrders.length > 0
+                ? partialOrders
+                : selectedQuotation.purchase_order?.filter((po) => po.order_type === "partial") || []
+              ).map((order, index) => (
                 <div key={index} className="mb-4 bg-gray-50 p-4 rounded-lg">
                   <h4 className="text-sm font-medium text-gray-700">Partial Order {index + 1}</h4>
                   <div className="overflow-x-auto rounded-lg shadow-sm">
@@ -916,18 +935,21 @@ const ViewQuotation = () => {
                                   key={field.name}
                                   className="px-4 py-3 text-sm text-black whitespace-nowrap"
                                 >
-                                  {field.name === "item_name" && field.fallback
-                                    ? item[field.name] || item[field.fallback] || "N/A"
+                                  {field.name === "item_name"
+                                    ? item[field.name] || "N/A"
                                     : field.name === "unit_price" || field.name === "total_price"
-                                      ? `$${item[field.name] != null ? Number(item[field.name]).toFixed(2) : "0.00"}`
-                                      : item[field.name] || "N/A"}
+                                    ? `$${item[field.name] != null ? Number(item[field.name]).toFixed(2) : "0.00"}`
+                                    : item[field.name] || "N/A"}
                                 </td>
                               ))}
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={partialOrderFields.length} className="px-4 py-3 text-sm text-black">
+                            <td
+                              colSpan={partialOrderFields.length}
+                              className="px-4 py-3 text-sm text-black"
+                            >
                               No items in this partial order.
                             </td>
                           </tr>
@@ -943,24 +965,52 @@ const ViewQuotation = () => {
                 <h3 className="text-md font-semibold mb-2 text-black">Purchase Order Details</h3>
                 {selectedQuotation.purchase_order.map((po, index) => (
                   <div key={index} className="mb-4 bg-gray-50 p-4 rounded-lg">
-                    <p><strong>Client PO Number:</strong> {uploadedPOFiles[selectedQuotation.id]?.client_po_number || po.client_po_number || "N/A"}</p>
-                    <p><strong>Created At:</strong> {uploadedPOFiles[selectedQuotation.id]?.created_at || po.created_at ? new Date(uploadedPOFiles[selectedQuotation.id]?.created_at || po.created_at).toLocaleDateString() : "N/A"}</p>
-                    <p><strong>Order Type:</strong> {uploadedPOFiles[selectedQuotation.id]?.order_type || po.order_type || "N/A"}</p>
+                    <p>
+                      <strong>Client PO Number:</strong>{" "}
+                      {uploadedPOFiles[selectedQuotation.id]?.client_po_number || po.client_po_number || "N/A"}
+                    </p>
+                    <p>
+                      <strong>Created At:</strong>{" "}
+                      {uploadedPOFiles[selectedQuotation.id]?.created_at || po.created_at
+                        ? new Date(
+                            uploadedPOFiles[selectedQuotation.id]?.created_at || po.created_at
+                          ).toLocaleDateString()
+                        : "N/A"}
+                    </p>
+                    <p>
+                      <strong>Order Type:</strong>{" "}
+                      {uploadedPOFiles[selectedQuotation.id]?.order_type || po.order_type || "N/A"}
+                    </p>
                   </div>
                 ))}
               </div>
             )}
             <div className="mt-4 flex justify-end space-x-2">
               <button
-                onClick={() => navigate(`/pre-job/edit-quotation`, {
-                  state: { quotationData: selectedQuotation, isEditing: true, partialOrders, uploadedPOFiles: uploadedPOFiles[selectedQuotation.id] ? { [selectedQuotation.id]: uploadedPOFiles[selectedQuotation.id] } : {} },
-                })}
+                onClick={() =>
+                  navigate(`/pre-job/edit-quotation`, {
+                    state: {
+                      quotationData: selectedQuotation,
+                      isEditing: true,
+                      partialOrders,
+                      uploadedPOFiles: uploadedPOFiles[selectedQuotation.id]
+                        ? { [selectedQuotation.id]: uploadedPOFiles[selectedQuotation.id] }
+                        : {},
+                    },
+                  })
+                }
                 className={`px-3 py-2 rounded transition-colors duration-200 ${
-                  partialOrders.length > 0 || (selectedQuotation.purchase_order && selectedQuotation.purchase_order.some(po => po.order_type === "full"))
+                  partialOrders.length > 0 ||
+                  (selectedQuotation.purchase_order &&
+                    selectedQuotation.purchase_order.some((po) => po.order_type === "full"))
                     ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                     : "bg-indigo-500 text-white hover:bg-indigo-600"
                 }`}
-                disabled={partialOrders.length > 0 || (selectedQuotation.purchase_order && selectedQuotation.purchase_order.some(po => po.order_type === "full"))}
+                disabled={
+                  partialOrders.length > 0 ||
+                  (selectedQuotation.purchase_order &&
+                    selectedQuotation.purchase_order.some((po) => po.order_type === "full"))
+                }
               >
                 Edit
               </button>
@@ -1065,49 +1115,89 @@ const ViewQuotation = () => {
 
       {showUploadPOModal && convertPurchaseOrder && purchaseOrderData && purchaseOrderData.order_type === "partial" && (
         <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50 transition-opacity duration-300">
-          <div className="bg-gradient-to-br from-indigo-100 to-white rounded-lg shadow-2xl p-6 w-full max-w-2xl h-[80vh] overflow-y-auto">
-            <h3 className="text-2xl font-bold mb-4 text-indigo-900 border-b-2 border-indigo-300 pb-2">
-              Upload PO Files for Quotation #{convertPurchaseOrder.quotation_no}
+          <div className="bg-white rounded-lg shadow-sm p-6 w-full max-w-2xl h-[80vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-3 text-black border-b pb-2">
+              Upload Partial Purchase Orders for Quotation #{convertPurchaseOrder.quotation_no}
             </h3>
-            <p className="text-gray-600 mb-6">
-              Please upload {partialOrders.length} PO files corresponding to the {partialOrders.length} partial orders created.
-            </p>
-            <div className="space-y-4">
-              {Array.from({ length: partialOrders.length }, (_, index) => (
-                <div key={index} className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-2">Partial Order {index + 1}</h4>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700">Client PO Number</label>
-                    <input
-                      type="text"
-                      value={purchaseOrderData.client_po_number || ""}
-                      onChange={(e) =>
-                        setPurchaseOrderData((prev) => ({
-                          ...prev,
-                          client_po_number: e.target.value,
-                        }))
-                      }
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-200"
-                      placeholder={`Enter Client PO Number for Partial Order ${index + 1}`}
-                    />
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700">Upload PO File</label>
-                    <input
-                      type="file"
-                      onChange={(e) => handlePoFileChange(e, index)}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-200"
-                    />
-                  </div>
+            {partialOrders.map((order, index) => (
+              <div key={index} className="mb-4 bg-gray-50 p-4 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-700">Partial Order {index + 1}</h4>
+                <div className="mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Client PO Number</label>
+                  <input
+                    type="text"
+                    value={purchaseOrderData.client_po_number}
+                    onChange={(e) =>
+                      setPurchaseOrderData((prev) => ({
+                        ...prev,
+                        client_po_number: e.target.value,
+                      }))
+                    }
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    placeholder="Enter Client PO Number (Optional)"
+                  />
                 </div>
-              ))}
-            </div>
-            <div className="mt-6 flex justify-end space-x-2">
+                <div className="mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Upload PO File</label>
+                  <input
+                    type="file"
+                    onChange={(e) => handlePoFileChange(e, index)}
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                <div className="overflow-x-auto rounded-lg shadow-sm">
+                  <table className="min-w-full bg-white border border-gray-200">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        {partialOrderFields.map((field) => (
+                          <th
+                            key={field.name}
+                            className="px-4 py-2 text-sm font-medium text-black text-left whitespace-nowrap"
+                          >
+                            {field.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {order.items && order.items.length > 0 ? (
+                        order.items.map((item) => (
+                          <tr key={item.id} className="border-t hover:bg-gray-50">
+                            {partialOrderFields.map((field) => (
+                              <td
+                                key={field.name}
+                                className="px-4 py-3 text-sm text-black whitespace-nowrap"
+                              >
+                                {field.name === "item_name"
+                                  ? item[field.name] || "N/A"
+                                  : field.name === "unit_price" || field.name === "total_price"
+                                  ? `$${item[field.name] != null ? Number(item[field.name]).toFixed(2) : "0.00"}`
+                                  : item[field.name] || "N/A"}
+                              </td>
+                            ))}
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={partialOrderFields.length}
+                            className="px-4 py-3 text-sm text-black"
+                          >
+                            No items in this partial order.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+            <div className="flex justify-end space-x-2">
               <button
                 onClick={handleSavePurchaseOrder}
-                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors duration-200 flex items-center"
+                className="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 transition-colors duration-200 flex items-center"
               >
-                <Upload size={16} className="mr-2" /> Save Partial Orders
+                <Upload size={16} className="mr-1" /> Save Partial Orders
               </button>
               <button
                 onClick={() => {
@@ -1115,7 +1205,7 @@ const ViewQuotation = () => {
                   setConvertPurchaseOrder(null);
                   setPurchaseOrderData(null);
                 }}
-                className="bg-gray-200 text-black px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors duration-200"
+                className="bg-gray-200 text-black px-3 py-2 rounded hover:bg-gray-300 transition-colors duration-200"
               >
                 Cancel
               </button>

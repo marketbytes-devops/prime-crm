@@ -34,6 +34,7 @@ class RFQ(models.Model):
     attention_email = models.EmailField(blank=True, null=True)
     due_date = models.DateField(blank=True, null=True)
     assign_to = models.ForeignKey(TeamMember, on_delete=models.SET_NULL, null=True, blank=True)
+    
     current_status = models.CharField(
         max_length=20,
         choices=[('Processing', 'Processing'), ('Completed', 'Completed')],
@@ -50,10 +51,9 @@ class RFQ(models.Model):
 class RFQItem(models.Model):
     rfq = models.ForeignKey(RFQ, on_delete=models.CASCADE, related_name='items')
     item_name = models.CharField(max_length=255, blank=True, null=True)
-    product_name = models.CharField(max_length=255, blank=True, null=True)
     quantity = models.PositiveIntegerField(null=True, blank=True)
     unit = models.CharField(max_length=100, null=True, blank=True)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     
     def __str__(self):
-        return f"{self.item_name or self.product_name} for RFQ {self.rfq.id}"
+        return f"{self.item_name} for RFQ {self.rfq.id}"
