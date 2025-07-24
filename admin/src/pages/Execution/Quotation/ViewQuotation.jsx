@@ -25,6 +25,7 @@ const ViewQuotation = () => {
     try {
       setLoading(true);
       const response = await apiClient.get("/quotations/");
+      console.log("API Response:", response.data);
       const data = Array.isArray(response.data) ? response.data : response.data.results || [];
       const updatedQuotations = await Promise.all(
         data.map(async (quotation, index) => {
@@ -52,6 +53,7 @@ const ViewQuotation = () => {
                 }));
               }
             } else {
+              console.warn(`No RFQ ID for quotation ${quotation.id}`);
               rfqDetails = {
                 rfq_no: "",
                 rfq_channel: "",
@@ -80,7 +82,7 @@ const ViewQuotation = () => {
               assign_to: rfqDetails.assigned_sales_person?.name || "Unassigned",
             };
           } catch (err) {
-            console.error(`Failed to fetch RFQ ${quotation.rfq}:`, err);
+            console.error(`Failed to fetch RFQ ${quotation.rfq} for quotation ${quotation.id}:`, err);
             rfqDetails = {
               rfq_no: "",
               rfq_channel: "",
@@ -118,6 +120,7 @@ const ViewQuotation = () => {
         const newQuotation = sortedQuotations.find((q) => q.id === location.state.quotationId);
         if (newQuotation) {
           setSelectedQuotation(newQuotation);
+          console.log("Selected Quotation:", newQuotation);
           const existingPOs = newQuotation.purchase_order?.filter((po) => po.order_type === "partial") || [];
           const statePartialOrders = location.state?.partialOrders || [];
           setPartialOrders(
@@ -198,8 +201,10 @@ const ViewQuotation = () => {
             }))
           : [],
       };
+      console.log("Updating quotation status with payload:", payload);
 
       const response = await apiClient.put(`/quotations/${quotationId}/`, payload);
+      console.log("API response:", response.data);
       const updatedQuotation = response.data;
 
       setQuotations((prev) =>
@@ -253,7 +258,9 @@ const ViewQuotation = () => {
       if (err.response?.status === 400 && err.response?.data?.rfq && err.response?.data?.items) {
         try {
           const patchPayload = { current_status: newStatus };
+          console.log("Falling back to PATCH with payload:", patchPayload);
           const patchResponse = await apiClient.patch(`/quotations/${quotationId}/`, patchPayload);
+          console.log("PATCH API response:", patchResponse.data);
           const patchedQuotation = patchResponse.data;
 
           setQuotations((prev) =>
@@ -381,7 +388,7 @@ const ViewQuotation = () => {
       JSON.stringify(
         purchaseOrderData.items.map((item) => ({
           item_name: item.item_name || null,
-          quantity: item.quantity || null,
+          quantity: item.quantity,
           unit: item.unit || null,
           unit_price: item.unit_price || null,
         }))
@@ -396,9 +403,11 @@ const ViewQuotation = () => {
     }
 
     try {
+      console.log("Saving PO with FormData:", Object.fromEntries(formData));
       const response = await apiClient.post("/purchase-orders/", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+      console.log("PO Creation Response:", response.data);
       toast.success("Purchase order created successfully!");
       setQuotations((prev) =>
         prev.map((q) =>
@@ -499,9 +508,9 @@ const ViewQuotation = () => {
                 .map(
                   (item) => `
                 <tr>
-                  <td>${item.item_name || "N/A"}</td>
-                  <td>${item.quantity || "N/A"}</td>
-                  <td>${item.unit || "N/A"}</td>
+                  <td>${item.item_name ||""}</td>
+                  <td>${item.quantity || ""}</td>
+                  <td>${item.unit || ""}</td>
                   <td>$${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}</td>
                   <td>$${item.total_price != null ? Number(item.total_price).toFixed(2) : "0.00"}</td>
                 </tr>
@@ -526,8 +535,8 @@ const ViewQuotation = () => {
             .map(
               (po, index) => `
               <h4>Purchase Order ${index + 1} (${po.order_type})</h4>
-              <p><strong>Client PO Number:</strong> ${uploadedPOFiles[quotation.id]?.client_po_number || po.client_po_number || "N/A"}</p>
-              <p><strong>Created At:</strong> ${uploadedPOFiles[quotation.id]?.created_at || po.created_at ? new Date(uploadedPOFiles[quotation.id]?.created_at || po.created_at).toLocaleDateString() : "N/A"}</p>
+              <p><strong>Client PO Number:</strong> ${uploadedPOFiles[quotation.id]?.client_po_number || po.client_po_number || ""}</p>
+              <p><strong>Created At:</strong> ${uploadedPOFiles[quotation.id]?.created_at || po.created_at ? new Date(uploadedPOFiles[quotation.id]?.created_at || po.created_at).toLocaleDateString() : ""}</p>
               <table>
                 <thead>
                   <tr>
@@ -545,9 +554,9 @@ const ViewQuotation = () => {
                           .map(
                             (item) => `
                     <tr>
-                      <td>${item.item_name || "N/A"}</td>
-                      <td>${item.quantity || "N/A"}</td>
-                      <td>${item.unit || "N/A"}</td>
+                      <td>${item.item_name || ""}</td>
+                      <td>${item.quantity || ""}</td>
+                      <td>${item.unit || ""}</td>
                       <td>$${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}</td>
                       <td>$${item.total_price != null ? Number(item.total_price).toFixed(2) : "0.00"}</td>
                     </tr>
@@ -621,6 +630,7 @@ const ViewQuotation = () => {
   };
 
   const getRepeatableFields = (items) => {
+    const hasItems = items.some((item) => item.item_name && item.item_name.trim() !== "");
     const hasUnitPrice = items.some((item) => item.unit_price != null);
     const hasTotalPrice = items.some((item) => item.total_price != null);
 
@@ -628,6 +638,7 @@ const ViewQuotation = () => {
       { name: "item_name", label: "Item" },
       { name: "quantity", label: "Quantity" },
       { name: "unit", label: "Unit" },
+      ...(hasItems ? [{ name: "item_name", label: "Item" }] : []),
       ...(hasUnitPrice ? [{ name: "unit_price", label: "Unit Price" }] : []),
       ...(hasTotalPrice ? [{ name: "total_price", label: "Total Price" }] : []),
     ];
@@ -901,7 +912,20 @@ const ViewQuotation = () => {
                   ? getRepeatableFields(selectedQuotation.items)
                   : []
               }
-              title={selectedQuotation.items && selectedQuotation.items.length > 0 ? "Items" : ""}
+              title={
+                selectedQuotation.items && selectedQuotation.items.length > 0
+                  ? (() => {
+                      const hasItems = selectedQuotation.items.some(
+                        (item) => item.item_name && item.item_name.trim() !== ""
+                      );
+                      return hasItems && ""
+                        ? "Items"
+                        : hasItems
+                        ? "Items"
+                        : "";
+                    })()
+                  : ""
+              }
               showRepeatableFields={selectedQuotation.items && selectedQuotation.items.length > 0}
               initialData={selectedQuotation}
             />
@@ -935,11 +959,11 @@ const ViewQuotation = () => {
                                   key={field.name}
                                   className="px-4 py-3 text-sm text-black whitespace-nowrap"
                                 >
-                                  {field.name === "item_name"
-                                    ? item[field.name] || "N/A"
+                                  {field.name === "item_name" && field.fallback
+                                    ? item[field.name] || item[field.fallback] || ""
                                     : field.name === "unit_price" || field.name === "total_price"
                                     ? `$${item[field.name] != null ? Number(item[field.name]).toFixed(2) : "0.00"}`
-                                    : item[field.name] || "N/A"}
+                                    : item[field.name] || ""}
                                 </td>
                               ))}
                             </tr>
@@ -967,7 +991,7 @@ const ViewQuotation = () => {
                   <div key={index} className="mb-4 bg-gray-50 p-4 rounded-lg">
                     <p>
                       <strong>Client PO Number:</strong>{" "}
-                      {uploadedPOFiles[selectedQuotation.id]?.client_po_number || po.client_po_number || "N/A"}
+                      {uploadedPOFiles[selectedQuotation.id]?.client_po_number || po.client_po_number || ""}
                     </p>
                     <p>
                       <strong>Created At:</strong>{" "}
@@ -975,11 +999,11 @@ const ViewQuotation = () => {
                         ? new Date(
                             uploadedPOFiles[selectedQuotation.id]?.created_at || po.created_at
                           ).toLocaleDateString()
-                        : "N/A"}
+                        : ""}
                     </p>
                     <p>
                       <strong>Order Type:</strong>{" "}
-                      {uploadedPOFiles[selectedQuotation.id]?.order_type || po.order_type || "N/A"}
+                      {uploadedPOFiles[selectedQuotation.id]?.order_type || po.order_type || ""}
                     </p>
                   </div>
                 ))}
@@ -1168,11 +1192,11 @@ const ViewQuotation = () => {
                                 key={field.name}
                                 className="px-4 py-3 text-sm text-black whitespace-nowrap"
                               >
-                                {field.name === "item_name"
-                                  ? item[field.name] || "N/A"
+                                {field.name === "item_name" && field.fallback
+                                  ? item[field.name] || item[field.fallback] || ""
                                   : field.name === "unit_price" || field.name === "total_price"
                                   ? `$${item[field.name] != null ? Number(item[field.name]).toFixed(2) : "0.00"}`
-                                  : item[field.name] || "N/A"}
+                                  : item[field.name] || ""}
                               </td>
                             ))}
                           </tr>
