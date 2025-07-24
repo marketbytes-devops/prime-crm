@@ -4,7 +4,6 @@ from django.conf import settings
 from .models import RFQ, RFQChannel, Client, RFQItem
 from team.models import TeamMember
 from series.models import NumberSeries
-from datetime import date
 from quotation.models import QuotationItem  
 
 class RFQChannelSerializer(serializers.ModelSerializer):
@@ -47,7 +46,8 @@ class RFQSerializer(serializers.ModelSerializer):
             'id', 'created_at', 'company_name', 'address', 'phone', 'email',
             'rfq_channel', 'attention_name', 'attention_phone', 'attention_email',
             'due_date', 'assign_to', 'assigned_sales_person',
-            'items', 'current_status', 'rfq_no', 'series'
+            'items', 'current_status', 'rfq_no', 'series',
+            'assign_to_name', 'assign_to_designation', 'assign_to_email'  # Added missing fields
         ]
         extra_kwargs = {
             'assign_to': {'write_only': True}
