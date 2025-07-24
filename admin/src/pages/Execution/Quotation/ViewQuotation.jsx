@@ -34,7 +34,10 @@ const ViewQuotation = () => {
           try {
             if (quotation.rfq) {
               const rfqResponse = await apiClient.get(`/add-rfqs/${quotation.rfq}/`);
-              rfqDetails = rfqResponse.data;
+              rfqDetails = {
+                ...rfqResponse.data,
+                assign_to: rfqResponse.data.assign_to_name || "", // Map assign_to to the team member's name
+              };
               if (!items.length && rfqDetails.items) {
                 items = rfqDetails.items.map(item => ({
                   id: item.id || null,
@@ -48,13 +51,36 @@ const ViewQuotation = () => {
               }
             } else {
               console.warn(`No RFQ ID for quotation ${quotation.id}`);
+              rfqDetails = {
+                rfq_no: "",
+                rfq_channel: "",
+                assign_to: "",
+                assign_to_designation: "",
+              };
             }
+            const nextFollowupDate = calculateNextFollowupDate(quotation);
+            const isDueReminder =
+              quotation.current_status === "Approved" &&
+              (!quotation.purchase_order || quotation.purchase_order.length === 0) &&
+              new Date(quotation.due_date) < new Date().setHours(0, 0, 0, 0);
+            return {
+              ...quotation,
+              si_no: index + 1,
+              current_status: quotation.current_status || "Pending",
+              next_followup_date: nextFollowupDate,
+              is_due_reminder: isDueReminder,
+              latest_remarks: quotation.latest_remarks || "",
+              rfq_details: rfqDetails,
+              items,
+              purchase_order: quotation.purchase_order || [],
+              assign_to: rfqDetails.assign_to || "", 
+            };
           } catch (err) {
             console.error(`Failed to fetch RFQ ${quotation.rfq} for quotation ${quotation.id}:`, err);
             rfqDetails = {
               rfq_no: "",
               rfq_channel: "",
-              assign_to_name: "",
+              assign_to: "",
               assign_to_designation: "",
             };
           }
@@ -73,6 +99,7 @@ const ViewQuotation = () => {
             rfq_details: rfqDetails,
             items,
             purchase_order: quotation.purchase_order || [],
+            assign_to: rfqDetails.assign_to || "",
           };
         })
       );
@@ -442,7 +469,7 @@ const ViewQuotation = () => {
           <h3>RFQ Details</h3>
           <p><strong>RFQ No:</strong> ${quotation.rfq_details?.rfq_no || ""}</p>
           <p><strong>RFQ Channel:</strong> ${quotation.rfq_details?.rfq_channel || ""}</p>
-          <p><strong>Assigned To:</strong> ${quotation.rfq_details?.assign_to_name || ""}</p>
+          <p><strong>Assigned Sales Person:</strong> ${quotation.rfq_details?.assign_to || ""}</p>
           <p><strong>Designation:</strong> ${quotation.rfq_details?.assign_to_designation || ""}</p>
         </div>
         ${quotation.items && quotation.items.length > 0
@@ -598,7 +625,7 @@ const ViewQuotation = () => {
     { name: "created_at", label: "Created At", type: "date" },
     { name: "quotation_no", label: "Quotation No" },
     { name: "rfq_details.rfq_no", label: "RFQ No" },
-    { name: "rfq_details.assign_to_name", label: "Assigned To" },
+    { name: "rfq_details.assign_to", label: "Assigned Sales Person" },
     { name: "current_status", label: "Status" },
     { name: "next_followup_date", label: "Next Followup Date", type: "date" },
     { name: "latest_remarks", label: "Latest Remarks" },
@@ -619,7 +646,7 @@ const ViewQuotation = () => {
     { name: "next_followup_date", label: "Next Followup Date", type: "date" },
     { name: "rfq_details.rfq_no", label: "RFQ No", type: "text" },
     { name: "rfq_details.rfq_channel", label: "RFQ Channel", type: "text" },
-    { name: "rfq_details.assign_to_name", label: "Assigned To", type: "text" },
+    { name: "rfq_details.assign_to", label: "Assigned Sales Person", type: "text" },
     { name: "rfq_details.assign_to_designation", label: "Designation", type: "text" },
     { name: "latest_remarks", label: "Latest Remarks", type: "text" },
   ];
@@ -701,6 +728,8 @@ const ViewQuotation = () => {
                         className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         placeholder="Add remark"
                       />
+                    ) : field.name === "assign_to" ? (
+                      quotation[field.name] || ""
                     ) : field.name.includes("rfq_details.") ? (
                       quotation.rfq_details[field.name.split(".")[1]] || ""
                     ) : field.type === "date" ? (

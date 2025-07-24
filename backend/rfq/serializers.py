@@ -36,6 +36,7 @@ class RFQSerializer(serializers.ModelSerializer):
         allow_null=True,
         required=False
     )
+    assigned_sales_person = serializers.SerializerMethodField()
     assign_to_name = serializers.CharField(source='assign_to.name', read_only=True)
     assign_to_designation = serializers.CharField(source='assign_to.designation', read_only=True)
     assign_to_email = serializers.CharField(source='assign_to.email', read_only=True)  
@@ -45,9 +46,23 @@ class RFQSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'created_at', 'company_name', 'address', 'phone', 'email',
             'rfq_channel', 'attention_name', 'attention_phone', 'attention_email',
-            'due_date', 'assign_to', 'assign_to_name', 'assign_to_designation', 'assign_to_email',
+            'due_date', 'assign_to', 'assigned_sales_person',
             'items', 'current_status', 'rfq_no', 'series'
         ]
+        extra_kwargs = {
+            'assign_to': {'write_only': True}
+        }
+        
+    def get_assigned_sales_person(self, obj):
+        if obj.assign_to:
+            return {
+                'id': obj.assign_to.id,
+                'name': obj.assign_to.name,
+                'designation': obj.assign_to.designation,
+                'email': obj.assign_to.email,
+                'phone': obj.assign_to.phone if hasattr(obj.assign_to, 'phone') else None
+            }
+        return None
 
     def validate(self, data):
         series = data.get('series')
