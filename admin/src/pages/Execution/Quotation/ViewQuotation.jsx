@@ -860,7 +860,6 @@ const ViewQuotation = () => {
               initialData={selectedQuotation}
             />
             <div className="mb-6">
-              <h3 className="text-md font-semibold mb-2 text-black">Partial Orders</h3>
               {console.log("Partial Orders:", partialOrders || selectedQuotation.purchase_order?.filter(po => po.order_type === "partial") || [])}
               {(partialOrders.length > 0 ? partialOrders : selectedQuotation.purchase_order?.filter(po => po.order_type === "partial") || []).map((order, index) => (
                 <div key={index} className="mb-4 bg-gray-50 p-4 rounded-lg">
@@ -907,15 +906,8 @@ const ViewQuotation = () => {
                       </tbody>
                     </table>
                   </div>
-                  <div className="mt-2 text-sm font-bold text-gray-700">
-                    Total for Partial Order {index + 1}: $
-                    {order.total_price != null ? Number(order.total_price).toFixed(2) : "0.00"}
-                  </div>
                 </div>
               ))}
-              {(!partialOrders.length && (!selectedQuotation.purchase_order || selectedQuotation.purchase_order.filter(po => po.order_type === "partial").length === 0)) && (
-                <p className="text-sm text-gray-600">No partial orders available.</p>
-              )}
             </div>
             {selectedQuotation.purchase_order && selectedQuotation.purchase_order.length > 0 && (
               <div className="mb-6">
