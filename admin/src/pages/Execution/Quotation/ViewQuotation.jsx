@@ -367,11 +367,22 @@ const ViewQuotation = () => {
   const handlePoFileChange = (e, index) => {
     const file = e.target.files[0];
     setPurchaseOrderData((prev) => {
-      const newFiles = prev?.po_files ? [...prev.po_files] : [];
+      const newFiles = prev?.po_files ? [...prev.po_files] : new Array(partialOrders.length).fill(null);
       newFiles[index] = file;
       return {
         ...prev,
         po_files: newFiles,
+      };
+    });
+  };
+
+  const handleClientPoNumberChange = (index, value) => {
+    setPurchaseOrderData((prev) => {
+      const newClientPoNumbers = prev?.client_po_numbers ? [...prev.client_po_numbers] : new Array(partialOrders.length).fill("");
+      newClientPoNumbers[index] = value || "";
+      return {
+        ...prev,
+        client_po_numbers: newClientPoNumbers,
       };
     });
   };
@@ -381,7 +392,6 @@ const ViewQuotation = () => {
 
     const formData = new FormData();
     formData.append("quotation", convertPurchaseOrder.id);
-    formData.append("client_po_number", purchaseOrderData.client_po_number || "");
     formData.append("order_type", purchaseOrderData.order_type || "full");
     formData.append(
       "items",
@@ -401,6 +411,11 @@ const ViewQuotation = () => {
         if (file) formData.append(`po_file_${index}`, file);
       });
     }
+    if (purchaseOrderData.client_po_numbers) {
+      purchaseOrderData.client_po_numbers.forEach((poNumber, index) => {
+        formData.append(`client_po_number_${index}`, poNumber || "");
+      });
+    }
 
     try {
       console.log("Saving PO with FormData:", Object.fromEntries(formData));
@@ -414,7 +429,15 @@ const ViewQuotation = () => {
           q.id === convertPurchaseOrder.id
             ? {
                 ...q,
-                purchase_order: [...(q.purchase_order || []), response.data],
+                purchase_order: purchaseOrderData.order_type === "partial"
+                  ? partialOrders.map((po, idx) => ({
+                      ...po,
+                      client_po_number: purchaseOrderData.client_po_numbers?.[idx] || "",
+                      po_file: purchaseOrderData.po_files?.[idx],
+                      created_at: response.data.created_at,
+                      order_type: "partial",
+                    }))
+                  : [...(q.purchase_order || []), response.data],
                 current_status: "PO Created",
               }
             : q
@@ -423,14 +446,22 @@ const ViewQuotation = () => {
       if (selectedQuotation && selectedQuotation.id === convertPurchaseOrder.id) {
         setSelectedQuotation((prev) => ({
           ...prev,
-          purchase_order: [...(prev.purchase_order || []), response.data],
+          purchase_order: purchaseOrderData.order_type === "partial"
+            ? partialOrders.map((po, idx) => ({
+                ...po,
+                client_po_number: purchaseOrderData.client_po_numbers?.[idx] || "",
+                po_file: purchaseOrderData.po_files?.[idx],
+                created_at: response.data.created_at,
+                order_type: "partial",
+              }))
+            : [...(prev.purchase_order || []), response.data],
           current_status: "PO Created",
         }));
       }
       setUploadedPOFiles((prev) => ({
         ...prev,
         [convertPurchaseOrder.id]: {
-          client_po_number: purchaseOrderData.client_po_number,
+          client_po_numbers: purchaseOrderData.client_po_numbers || [],
           fileName: purchaseOrderData.po_file
             ? purchaseOrderData.po_file.name
             : purchaseOrderData.po_files.map((f) => f?.name).join(", "),
@@ -508,7 +539,7 @@ const ViewQuotation = () => {
                 .map(
                   (item) => `
                 <tr>
-                  <td>${item.item_name ||""}</td>
+                  <td>${item.item_name || ""}</td>
                   <td>${item.quantity || ""}</td>
                   <td>${item.unit || ""}</td>
                   <td>$${item.unit_price != null ? Number(item.unit_price).toFixed(2) : "0.00"}</td>
@@ -535,7 +566,7 @@ const ViewQuotation = () => {
             .map(
               (po, index) => `
               <h4>Purchase Order ${index + 1} (${po.order_type})</h4>
-              <p><strong>Client PO Number:</strong> ${uploadedPOFiles[quotation.id]?.client_po_number || po.client_po_number || ""}</p>
+              <p><strong>Client PO Number:</strong> ${uploadedPOFiles[quotation.id]?.client_po_numbers?.[index] || po.client_po_number || ""}</p>
               <p><strong>Created At:</strong> ${uploadedPOFiles[quotation.id]?.created_at || po.created_at ? new Date(uploadedPOFiles[quotation.id]?.created_at || po.created_at).toLocaleDateString() : ""}</p>
               <table>
                 <thead>
@@ -814,9 +845,10 @@ const ViewQuotation = () => {
                           setConvertPurchaseOrder(quotation);
                           setPurchaseOrderData({
                             ...quotation,
-                            client_po_number: "",
+                            client_po_numbers: new Array(partialOrders.length).fill(""),
                             po_files: new Array(partialOrders.length).fill(null),
                             order_type: "partial",
+                            items: partialOrders,
                           });
                           setShowUploadPOModal(true);
                         }}
@@ -991,7 +1023,7 @@ const ViewQuotation = () => {
                   <div key={index} className="mb-4 bg-gray-50 p-4 rounded-lg">
                     <p>
                       <strong>Client PO Number:</strong>{" "}
-                      {uploadedPOFiles[selectedQuotation.id]?.client_po_number || po.client_po_number || ""}
+                      {uploadedPOFiles[selectedQuotation.id]?.client_po_numbers?.[index] || po.client_po_number || ""}
                     </p>
                     <p>
                       <strong>Created At:</strong>{" "}
@@ -1150,15 +1182,10 @@ const ViewQuotation = () => {
                   <label className="block text-sm font-medium text-gray-700">Client PO Number</label>
                   <input
                     type="text"
-                    value={purchaseOrderData.client_po_number}
-                    onChange={(e) =>
-                      setPurchaseOrderData((prev) => ({
-                        ...prev,
-                        client_po_number: e.target.value,
-                      }))
-                    }
+                    value={purchaseOrderData.client_po_numbers?.[index] || ""}
+                    onChange={(e) => handleClientPoNumberChange(index, e.target.value)}
                     className="w-full p-2 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    placeholder="Enter Client PO Number (Optional)"
+                    placeholder={`Enter Client PO Number for Partial Order ${index + 1}`}
                   />
                 </div>
                 <div className="mb-2">
